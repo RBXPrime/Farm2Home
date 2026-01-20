@@ -33,7 +33,7 @@
           Leaf, Truck, ShieldCheck, Heart, Search, ShoppingCart, 
           User, ChevronRight, ArrowRight, Menu, X, MapPin, Star, 
           Facebook, Twitter, Instagram, Upload, FileText, CheckCircle, 
-          XCircle, AlertCircle, Package, DollarSign, Users, ClipboardList, Loader2, QrCode, Image as ImageIcon
+          XCircle, AlertCircle, Package, DollarSign, Users, ClipboardList, Loader2, QrCode, Image as ImageIcon, LayoutDashboard
         } from 'lucide-react';
 
         // --- FIREBASE IMPORTS ---
@@ -64,8 +64,9 @@
         import { 
           getStorage, 
           ref, 
-          uploadBytes, 
-          getDownloadURL 
+          uploadBytesResumable, 
+          getDownloadURL,
+          uploadBytes 
         } from 'firebase/storage';
 
         // --- FIREBASE CONFIGURATION ---
@@ -152,6 +153,10 @@
                       else if (data.role === 'mod') setView('dashboard');
                       else setView('home');
                   }
+                } else {
+                    // Auth exists but no firestore doc (failed signup previously)
+                    console.warn("User authenticated but no profile found.");
+                    setCurrentUser({ uid: user.uid, role: 'unknown', name: user.email });
                 }
               } else {
                 setCurrentUser(null);
@@ -180,7 +185,7 @@
             setTimeout(() => setNotification(null), 3000);
           };
 
-          const handleSignup = async (formData, file) => {
+          const handleSignup = async (formData, file, setUploadProgress) => {
             setLoading(true);
             try {
               // 1. Create Auth User
@@ -189,11 +194,26 @@
               
               let docUrl = "";
 
-              // 2. Upload Document if provided
+              // 2. Upload Document if provided (With Progress)
               if (file) {
                 const storageRef = ref(storage, `documents/${user.uid}/${file.name}`);
-                await uploadBytes(storageRef, file);
-                docUrl = await getDownloadURL(storageRef);
+                
+                // Use Promise to handle upload task
+                docUrl = await new Promise((resolve, reject) => {
+                    const uploadTask = uploadBytesResumable(storageRef, file);
+                    
+                    uploadTask.on('state_changed', 
+                      (snapshot) => {
+                        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                        if(setUploadProgress) setUploadProgress(progress);
+                      }, 
+                      (error) => reject(error), 
+                      async () => {
+                        const url = await getDownloadURL(uploadTask.snapshot.ref);
+                        resolve(url);
+                      }
+                    );
+                });
               }
 
               // 3. Determine Role
@@ -225,6 +245,9 @@
 
               showNotification("Account created successfully!", "success");
               
+              // Immediate local update so user doesn't have to wait for auth listener
+              setCurrentUser({ uid: user.uid, ...userData });
+
               if (userData.status === 'pending') {
                 setView('dashboard'); 
               } else if (role === 'buyer') {
@@ -238,6 +261,7 @@
               showNotification(error.message, "error");
             } finally {
               setLoading(false);
+              if(setUploadProgress) setUploadProgress(0);
             }
           };
 
@@ -346,7 +370,9 @@
 
                 <div className="hidden md:flex items-center gap-8 font-medium">
                    <button onClick={() => setView('home')} className={`hover:text-green-600 transition-colors ${view === 'home' ? 'text-green-600' : 'text-gray-600'}`}>Home</button>
-                   <button onClick={() => setView('marketplace')} className={`hover:text-green-600 transition-colors ${view === 'marketplace' ? 'text-green-600' : 'text-gray-600'}`}>Marketplace</button>
+                   {currentUser?.role === 'buyer' && (
+                     <button onClick={() => setView('marketplace')} className={`hover:text-green-600 transition-colors ${view === 'marketplace' ? 'text-green-600' : 'text-gray-600'}`}>Marketplace</button>
+                   )}
                    <button onClick={() => setView('about')} className={`hover:text-green-600 transition-colors ${view === 'about' ? 'text-green-600' : 'text-gray-600'}`}>About Us</button>
                 </div>
 
@@ -369,10 +395,14 @@
                       
                       {/* ROLE BASED NAVIGATION */}
                       {currentUser.role === 'farmer' && (
-                        <button onClick={() => setView('dashboard')} className="text-gray-900 font-bold hover:text-green-700">Dashboard</button>
+                        <button onClick={() => setView('dashboard')} className="flex items-center gap-2 bg-green-100 text-green-800 px-4 py-2 rounded-lg font-bold hover:bg-green-200 transition-colors">
+                          <LayoutDashboard className="w-4 h-4"/> Farmer Panel
+                        </button>
                       )}
                       {currentUser.role === 'mod' && (
-                        <button onClick={() => setView('dashboard')} className="text-gray-900 font-bold hover:text-green-700">Mod Panel</button>
+                        <button onClick={() => setView('dashboard')} className="flex items-center gap-2 bg-purple-100 text-purple-800 px-4 py-2 rounded-lg font-bold hover:bg-purple-200 transition-colors">
+                          <ShieldCheck className="w-4 h-4"/> Mod Panel
+                        </button>
                       )}
                       
                       <button 
@@ -392,7 +422,7 @@
             </nav>
           );
 
-          // ... (AboutUs, FeaturesSection, Footer components remain same as before, shortened for brevity but assumed present in final file) ...
+          // ... (AboutUs, FeaturesSection, Footer components remain same as before) ...
           const AboutUs = () => (
             <section className="py-32 bg-white">
               <div className="max-w-4xl mx-auto px-4 text-center">
@@ -435,6 +465,7 @@
           const AuthScreen = () => {
             const [role, setRole] = useState('buyer'); 
             const [file, setFile] = useState(null);
+            const [uploadProgress, setUploadProgress] = useState(0);
             const [formData, setFormData] = useState({
               name: '', email: '', password: '', phone: '', address: '', aadhar: ''
             });
@@ -444,7 +475,7 @@
               if (authMode === 'login') {
                 handleLogin(formData.email, formData.password);
               } else {
-                handleSignup({ ...formData, role }, file);
+                handleSignup({ ...formData, role }, file, setUploadProgress);
               }
             };
 
@@ -499,11 +530,17 @@
                             <span className="text-sm font-bold text-gray-700">{file ? file.name : "Upload ID Document"}</span>
                             <input type="file" required className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e) => setFile(e.target.files[0])} />
                           </div>
+                          {uploadProgress > 0 && uploadProgress < 100 && (
+                              <div className="w-full bg-gray-200 rounded-full h-2.5">
+                                <div className="bg-green-600 h-2.5 rounded-full" style={{width: `${uploadProgress}%`}}></div>
+                                <p className="text-xs text-center mt-1 text-green-700">Uploading: {Math.round(uploadProgress)}%</p>
+                              </div>
+                          )}
                         </div>
                       )}
 
                       <button disabled={loading} className="w-full py-4 bg-green-700 text-white font-bold text-lg rounded-xl hover:bg-green-800 transition-all flex justify-center">
-                        {loading ? <Loader2 className="animate-spin" /> : (authMode === 'login' ? 'Sign In' : 'Create Account')}
+                        {loading ? <div className="flex items-center gap-2"><Loader2 className="animate-spin" /> {uploadProgress > 0 ? "Uploading Document..." : "Processing..."}</div> : (authMode === 'login' ? 'Sign In' : 'Create Account')}
                       </button>
                     </form>
                     <div className="text-center pt-4">
@@ -537,8 +574,8 @@
             }, [tab, currentUser.uid]);
 
             const StatusBanner = () => (
-                <div className={`fixed top-20 left-0 right-0 z-40 p-4 text-center font-bold shadow-md ${currentUser.status === 'rejected' ? 'bg-red-500 text-white' : 'bg-yellow-400 text-yellow-900'}`}>
-                    {currentUser.status === 'pending' && "⚠️ Your application is currently UNDER REVIEW. Selling is restricted."}
+                <div className={`fixed top-20 left-0 right-0 z-40 p-4 text-center font-bold shadow-2xl transform transition-transform duration-300 ${currentUser.status === 'rejected' ? 'bg-red-600 text-white' : 'bg-yellow-400 text-yellow-900'} border-b-4 border-black/10`}>
+                    {currentUser.status === 'pending' && <span className="flex items-center justify-center gap-2"><Loader2 className="animate-spin"/> ⚠️ Your application is currently UNDER REVIEW. Selling is restricted.</span>}
                     {currentUser.status === 'rejected' && `❌ Your application was REJECTED: ${currentUser.rejectionReason || "Contact support"}`}
                 </div>
             );
@@ -552,11 +589,11 @@
               <div className="min-h-screen pt-24 pb-12 px-4 bg-gray-50">
                 {isRestricted && <StatusBanner />}
                 
-                <div className={`max-w-6xl mx-auto ${isRestricted ? 'opacity-50 pointer-events-none mt-16' : ''}`}>
+                <div className={`max-w-6xl mx-auto ${isRestricted ? 'opacity-50 pointer-events-none mt-20' : ''}`}>
                   <header className="mb-8 flex flex-col md:flex-row justify-between items-end gap-4">
                     <div>
-                      <h1 className="text-3xl font-black text-gray-900">Farmer Dashboard</h1>
-                      <p className="text-gray-500">Manage inventory and orders</p>
+                      <h1 className="text-3xl font-black text-gray-900">Farmer Panel</h1>
+                      <p className="text-gray-500">Manage your farm inventory, orders, and payments</p>
                     </div>
                     <div className="flex bg-white p-1 rounded-xl shadow-sm">
                       <button onClick={() => setTab('inventory')} className={`px-6 py-2 rounded-lg font-bold text-sm ${tab === 'inventory' ? 'bg-green-600 text-white' : 'text-gray-500'}`}>Inventory</button>
