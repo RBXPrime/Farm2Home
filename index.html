@@ -8,13 +8,17 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Babel for JSX -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <!-- Import Map for React & Lucide -->
+    <!-- Import Map: Switched to Google's official CDN to fix auth registration error -->
     <script type="importmap">
     {
       "imports": {
         "react": "https://esm.sh/react@18.2.0",
         "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
-        "lucide-react": "https://esm.sh/lucide-react@0.263.1"
+        "lucide-react": "https://esm.sh/lucide-react@0.263.1",
+        "firebase/app": "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js",
+        "firebase/auth": "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js",
+        "firebase/firestore": "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js",
+        "firebase/storage": "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js"
       }
     }
     </script>
@@ -29,20 +33,55 @@
           Leaf, Truck, ShieldCheck, Heart, Search, ShoppingCart, 
           User, ChevronRight, ArrowRight, Menu, X, MapPin, Star, 
           Facebook, Twitter, Instagram, Upload, FileText, CheckCircle, 
-          XCircle, AlertCircle, Package, DollarSign, Users, ClipboardList
+          XCircle, AlertCircle, Package, DollarSign, Users, ClipboardList, Loader2
         } from 'lucide-react';
 
-        // --- MOCK DATABASE (Initial State) ---
-        const INITIAL_USERS = [
-          { 
-            id: 999, 
-            name: "Head Moderator", 
-            email: "mod@test.com", 
-            password: "123", 
-            role: "mod", 
-            status: "active" 
-          }
-        ];
+        // --- FIREBASE IMPORTS ---
+        import { initializeApp } from 'firebase/app';
+        import { 
+          getAuth, 
+          createUserWithEmailAndPassword, 
+          signInWithEmailAndPassword, 
+          signOut, 
+          onAuthStateChanged 
+        } from 'firebase/auth';
+        import { 
+          getFirestore, 
+          collection, 
+          addDoc, 
+          getDocs, 
+          doc, 
+          setDoc, 
+          getDoc, 
+          updateDoc, 
+          onSnapshot, 
+          query, 
+          where,
+          serverTimestamp 
+        } from 'firebase/firestore';
+        import { 
+          getStorage, 
+          ref, 
+          uploadBytes, 
+          getDownloadURL 
+        } from 'firebase/storage';
+
+        // --- FIREBASE CONFIGURATION ---
+        const firebaseConfig = {
+          apiKey: "AIzaSyCTV6gg2QXLHJMSGvOWIa-YDy5-PvrgeHk",
+          authDomain: "farm2home-2f7ff.firebaseapp.com",
+          projectId: "farm2home-2f7ff",
+          storageBucket: "farm2home-2f7ff.firebasestorage.app",
+          messagingSenderId: "656644623315",
+          appId: "1:656644623315:web:0d59d865c82b5c9b4e7d26",
+          measurementId: "G-XFQFK8Q9TZ"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const storage = getStorage(app);
 
         // --- CONSTANTS ---
         const FEATURES = [
@@ -74,110 +113,176 @@
 
         function App() {
           // --- GLOBAL STATE ---
-          const [users, setUsers] = useState(INITIAL_USERS);
           const [products, setProducts] = useState([]); 
-          const [orders, setOrders] = useState([]);
           const [currentUser, setCurrentUser] = useState(null);
+          const [loading, setLoading] = useState(true);
           
           // Navigation & UI State
-          const [view, setView] = useState('home'); // home, auth, dashboard, marketplace, about
-          const [authMode, setAuthMode] = useState('login'); // login, signup
+          const [view, setView] = useState('home'); 
+          const [authMode, setAuthMode] = useState('login'); 
           const [isMenuOpen, setIsMenuOpen] = useState(false);
           const [notification, setNotification] = useState(null);
 
-          // --- ACTIONS ---
-
-          const handleSignup = (formData) => {
-            const newUser = {
-              id: Date.now(),
-              ...formData,
-              status: formData.role === 'farmer' || formData.role === 'mod' ? 'pending' : 'active', 
-              joinedDate: new Date().toISOString(),
-              wallet: 0,
-              rejectionReason: null
-            };
-
-            setUsers([...users, newUser]);
-            
-            if (newUser.role === 'farmer' || newUser.role === 'mod') {
-              showNotification("Application submitted! Please wait for approval.", "success");
-              setView('home');
-            } else {
-              setCurrentUser(newUser);
-              setView('dashboard');
-            }
-          };
-
-          const handleLogin = (email, password) => {
-            const user = users.find(u => u.email === email && u.password === password);
-            if (user) {
-              setCurrentUser(user);
-              setView('dashboard');
-            } else {
-              showNotification("Invalid credentials", "error");
-            }
-          };
-
-          const handleLogout = () => {
-            setCurrentUser(null);
-            setView('home');
-          };
-
-          const addProduct = (productData) => {
-            const newProduct = {
-              id: Date.now(),
-              farmerId: currentUser.id,
-              farmerName: currentUser.name,
-              ...productData,
-              rating: 0,
-              reviews: 0
-            };
-            setProducts([...products, newProduct]);
-            showNotification("Product added to marketplace!", "success");
-          };
-
-          const placeOrder = (cartItems, total) => {
-            const newOrder = {
-              id: `ORD-${Date.now()}`,
-              customerId: currentUser.id,
-              customerName: currentUser.name,
-              items: cartItems,
-              total: total,
-              date: new Date().toISOString(),
-              status: 'Paid',
-              address: currentUser.address || '123 Main St, Local Area'
-            };
-
-            const updatedProducts = products.map(p => {
-              const cartItem = cartItems.find(item => item.id === p.id);
-              if (cartItem) {
-                return { ...p, stock: p.stock - cartItem.quantity };
+          // --- AUTH LISTENER ---
+          useEffect(() => {
+            const unsubscribe = onAuthStateChanged(auth, async (user) => {
+              if (user) {
+                // Fetch extra user details from Firestore
+                const userDoc = await getDoc(doc(db, "users", user.uid));
+                if (userDoc.exists()) {
+                  setCurrentUser({ uid: user.uid, ...userDoc.data() });
+                  if(view === 'home' || view === 'auth') setView('dashboard');
+                }
+              } else {
+                setCurrentUser(null);
               }
-              return p;
+              setLoading(false);
+            });
+            return () => unsubscribe();
+          }, []);
+
+          // --- DATA LISTENERS ---
+          useEffect(() => {
+            // Listen for Products
+            const q = query(collection(db, "products"));
+            const unsubscribeProducts = onSnapshot(q, (snapshot) => {
+              const productsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+              setProducts(productsData);
             });
 
-            setOrders([newOrder, ...orders]);
-            setProducts(updatedProducts);
-            showNotification("Order placed successfully!", "success");
-          };
+            return () => unsubscribeProducts();
+          }, []);
 
-          const handleModAction = (userId, action, reason = "") => {
-            setUsers(users.map(u => {
-              if (u.id === userId) {
-                return {
-                  ...u,
-                  status: action === 'approve' ? 'active' : 'rejected',
-                  rejectionReason: reason
-                };
-              }
-              return u;
-            }));
-            showNotification(`User ${action === 'approve' ? 'approved' : 'rejected'} successfully`, "success");
-          };
+          // --- ACTIONS ---
 
           const showNotification = (msg, type) => {
             setNotification({ msg, type });
             setTimeout(() => setNotification(null), 3000);
+          };
+
+          const handleSignup = async (formData, file) => {
+            setLoading(true);
+            try {
+              // 1. Create Auth User
+              const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
+              const user = userCredential.user;
+              
+              let docUrl = "";
+
+              // 2. Upload Document if provided
+              if (file) {
+                const storageRef = ref(storage, `documents/${user.uid}/${file.name}`);
+                await uploadBytes(storageRef, file);
+                docUrl = await getDownloadURL(storageRef);
+              }
+
+              // 3. Save User Profile to Firestore
+              const userData = {
+                name: formData.name,
+                email: formData.email,
+                phone: formData.phone || "",
+                address: formData.address || "",
+                role: formData.role,
+                status: (formData.role === 'farmer' || formData.role === 'mod') ? 'pending' : 'active',
+                aadhar: formData.aadhar || "",
+                docUrl: docUrl,
+                joinedDate: serverTimestamp(),
+                rejectionReason: null
+              };
+
+              await setDoc(doc(db, "users", user.uid), userData);
+
+              showNotification("Account created successfully!", "success");
+              
+              if (userData.status === 'pending') {
+                setView('home'); // or show a specific pending message
+                alert("Application submitted! Please wait for approval.");
+              }
+
+            } catch (error) {
+              console.error(error);
+              showNotification(error.message, "error");
+            } finally {
+              setLoading(false);
+            }
+          };
+
+          const handleLogin = async (email, password) => {
+            setLoading(true);
+            try {
+              await signInWithEmailAndPassword(auth, email, password);
+              showNotification("Logged in successfully", "success");
+            } catch (error) {
+              showNotification("Invalid email or password", "error");
+            } finally {
+              setLoading(false);
+            }
+          };
+
+          const handleLogout = async () => {
+            await signOut(auth);
+            setView('home');
+          };
+
+          const addProduct = async (productData) => {
+            if (!currentUser) return;
+            try {
+              await addDoc(collection(db, "products"), {
+                ...productData,
+                farmerId: currentUser.uid,
+                farmerName: currentUser.name,
+                createdAt: serverTimestamp()
+              });
+              showNotification("Product published!", "success");
+            } catch (error) {
+              showNotification("Error adding product", "error");
+            }
+          };
+
+          const placeOrder = async (cartItems, total) => {
+            if (!currentUser) return;
+            try {
+              // 1. Create Order
+              await addDoc(collection(db, "orders"), {
+                customerId: currentUser.uid,
+                customerName: currentUser.name,
+                items: cartItems,
+                total: total,
+                date: new Date().toISOString(),
+                status: 'Paid',
+                address: currentUser.address || 'Local'
+              });
+
+              // 2. Update Stock (Simple version - ideally run as transaction)
+              for (const item of cartItems) {
+                const prodRef = doc(db, "products", item.id);
+                // We need to fetch current stock first to be safe, but for now simple update
+                // Note: In a real app, use transactions to prevent race conditions
+                const prodSnap = await getDoc(prodRef);
+                if (prodSnap.exists()) {
+                   const currentStock = prodSnap.data().stock;
+                   await updateDoc(prodRef, { stock: currentStock - item.quantity });
+                }
+              }
+
+              showNotification("Order placed successfully!", "success");
+            } catch (error) {
+              console.error(error);
+              showNotification("Failed to place order", "error");
+            }
+          };
+
+          const handleModAction = async (userId, action, reason = "") => {
+            try {
+              const userRef = doc(db, "users", userId);
+              await updateDoc(userRef, {
+                status: action === 'approve' ? 'active' : 'rejected',
+                rejectionReason: reason
+              });
+              showNotification(`User ${action === 'approve' ? 'approved' : 'rejected'}`, "success");
+            } catch (error) {
+              showNotification("Action failed", "error");
+            }
           };
 
           // --- COMPONENTS ---
@@ -331,9 +436,10 @@
           );
 
           const AuthScreen = () => {
-            const [role, setRole] = useState('buyer'); // buyer, farmer, mod
+            const [role, setRole] = useState('buyer'); 
+            const [file, setFile] = useState(null);
             const [formData, setFormData] = useState({
-              name: '', email: '', password: '', phone: '', address: '', aadhar: '', idUrl: ''
+              name: '', email: '', password: '', phone: '', address: '', aadhar: ''
             });
 
             const handleSubmit = (e) => {
@@ -341,7 +447,7 @@
               if (authMode === 'login') {
                 handleLogin(formData.email, formData.password);
               } else {
-                handleSignup({ ...formData, role });
+                handleSignup({ ...formData, role }, file);
               }
             };
 
@@ -366,13 +472,13 @@
                      </p>
                      <div className="flex gap-4">
                        <div className="flex -space-x-4">
-                         {[1,2,3].map(i => (
-                           <img key={i} src={`https://i.pravatar.cc/100?img=${i+10}`} className="w-12 h-12 rounded-full border-4 border-green-900" alt="user"/>
-                         ))}
+                         <div className="w-12 h-12 rounded-full border-4 border-green-900 bg-white/20 flex items-center justify-center">
+                            <Users className="w-6 h-6"/>
+                         </div>
                        </div>
                        <div className="flex flex-col justify-center">
-                         <span className="font-bold">50k+ Users</span>
-                         <span className="text-sm text-green-200">Trust us daily</span>
+                         <span className="font-bold">Join the Community</span>
+                         <span className="text-sm text-green-200">Start today</span>
                        </div>
                      </div>
                   </div>
@@ -394,6 +500,7 @@
                       <div className="grid grid-cols-3 gap-2 p-1 bg-gray-100 rounded-2xl">
                         {['buyer', 'farmer', 'mod'].map((r) => (
                           <button
+                            type="button"
                             key={r}
                             onClick={() => setRole(r)}
                             className={`py-3 text-sm font-bold rounded-xl capitalize transition-all duration-200 ${role === r ? 'bg-white text-green-700 shadow-md transform scale-100' : 'text-gray-500 hover:text-gray-700'}`}
@@ -436,13 +543,17 @@
                             Govt. Verification Required
                           </div>
                           <input required placeholder="Aadhar / Govt ID Number" className="w-full px-5 py-4 rounded-xl bg-white border border-green-100 focus:border-green-500 focus:ring-4 focus:ring-green-100 transition-all outline-none" value={formData.aadhar} onChange={e => setFormData({...formData, aadhar: e.target.value})} />
-                          <div className="border-2 border-dashed border-green-200 rounded-xl p-6 text-center bg-white cursor-pointer hover:bg-green-50 hover:border-green-400 transition-all group">
+                          <div className="border-2 border-dashed border-green-200 rounded-xl p-6 text-center bg-white cursor-pointer hover:bg-green-50 hover:border-green-400 transition-all group relative">
                             <div className="bg-green-100 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
                               <Upload className="w-6 h-6 text-green-600" />
                             </div>
-                            <span className="text-sm font-bold text-gray-700">Click to upload ID Document</span>
+                            <span className="text-sm font-bold text-gray-700">{file ? file.name : "Click to upload ID Document"}</span>
                             <p className="text-xs text-gray-400 mt-1">Supports JPG, PNG, PDF</p>
-                            <input type="file" className="hidden" />
+                            <input 
+                              type="file" 
+                              className="absolute inset-0 opacity-0 cursor-pointer" 
+                              onChange={(e) => setFile(e.target.files[0])}
+                            />
                           </div>
                         </div>
                       )}
@@ -455,13 +566,17 @@
                             Skill Verification
                           </div>
                           <p className="text-xs text-purple-700/70">To ensure the safety of our platform, Moderators are hired based on qualifications.</p>
-                          <div className="border-2 border-dashed border-purple-200 rounded-xl p-6 text-center bg-white cursor-pointer hover:bg-purple-50 hover:border-purple-400 transition-all group">
+                          <div className="border-2 border-dashed border-purple-200 rounded-xl p-6 text-center bg-white cursor-pointer hover:bg-purple-50 hover:border-purple-400 transition-all group relative">
                             <div className="bg-purple-100 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
                               <FileText className="w-6 h-6 text-purple-600" />
                             </div>
-                            <span className="text-sm font-bold text-gray-700">Upload Resume / CV</span>
+                            <span className="text-sm font-bold text-gray-700">{file ? file.name : "Upload Resume / CV"}</span>
                             <p className="text-xs text-gray-400 mt-1">PDF or Docx recommended</p>
-                            <input type="file" className="hidden" />
+                            <input 
+                              type="file" 
+                              className="absolute inset-0 opacity-0 cursor-pointer"
+                              onChange={(e) => setFile(e.target.files[0])}
+                            />
                           </div>
                         </div>
                       )}
@@ -474,14 +589,14 @@
                          </div>
                       )}
 
-                      <button className="w-full py-4 bg-green-700 text-white font-bold text-lg rounded-xl hover:bg-green-800 transition-all shadow-xl shadow-green-200 hover:shadow-2xl hover:-translate-y-1 active:scale-95 mt-6">
-                        {authMode === 'login' ? 'Sign In' : 'Create Account'}
+                      <button disabled={loading} className="w-full py-4 bg-green-700 text-white font-bold text-lg rounded-xl hover:bg-green-800 transition-all shadow-xl shadow-green-200 hover:shadow-2xl hover:-translate-y-1 active:scale-95 mt-6 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center">
+                        {loading ? <Loader2 className="animate-spin" /> : (authMode === 'login' ? 'Sign In' : 'Create Account')}
                       </button>
                     </form>
 
                     <div className="text-center pt-4">
                       <button 
-                        onClick={() => setAuthMode(authMode === 'login' ? 'signup' : 'login')}
+                        onClick={() => { setAuthMode(authMode === 'login' ? 'signup' : 'login'); setFile(null); }}
                         className="text-gray-500 font-medium hover:text-green-700 transition-colors"
                       >
                         {authMode === 'login' ? "Don't have an account? " : "Already have an account? "}
@@ -497,6 +612,27 @@
           const FarmerDashboard = () => {
             const [tab, setTab] = useState('inventory'); // inventory, orders, status
             const [newProd, setNewProd] = useState({ name: '', price: '', stock: '', unit: 'kg', pesticides: false, description: '' });
+            const [myOrders, setMyOrders] = useState([]);
+
+            // Fetch Farmer Orders
+            useEffect(() => {
+              if (tab === 'orders') {
+                const q = query(collection(db, "orders"));
+                const unsubscribe = onSnapshot(q, (snapshot) => {
+                  // Client-side filter for orders containing this farmer's products
+                  // Ideally done with better backend structure or array-contains query
+                  const allOrders = snapshot.docs.map(d => ({id: d.id, ...d.data()}));
+                  const relevantOrders = allOrders.filter(o => o.items.some(i => i.farmerId === currentUser.uid));
+                  // Map items to only show relevant ones
+                  const mappedOrders = relevantOrders.map(o => ({
+                     ...o,
+                     items: o.items.filter(i => i.farmerId === currentUser.uid)
+                  }));
+                  setMyOrders(mappedOrders);
+                });
+                return () => unsubscribe();
+              }
+            }, [tab, currentUser.uid]);
 
             // Status Check
             if (currentUser.status === 'pending') {
@@ -537,11 +673,7 @@
             }
 
             // Active Dashboard
-            const myProducts = products.filter(p => p.farmerId === currentUser.id);
-            const myOrders = orders.flatMap(o => {
-              const myItems = o.items.filter(i => i.farmerId === currentUser.id);
-              return myItems.length > 0 ? [{ ...o, items: myItems }] : [];
-            });
+            const myProducts = products.filter(p => p.farmerId === currentUser.uid);
 
             return (
               <div className="min-h-screen pt-24 pb-12 px-4 bg-gray-50">
@@ -675,9 +807,17 @@
           };
 
           const ModDashboard = () => {
-            const pendingFarmers = users.filter(u => u.role === 'farmer' && u.status === 'pending');
+            const [pendingUsers, setPendingUsers] = useState([]);
             const [rejectReason, setRejectReason] = useState("");
-            const [selectedFarmer, setSelectedFarmer] = useState(null);
+            const [selectedUser, setSelectedUser] = useState(null);
+
+            useEffect(() => {
+                const q = query(collection(db, "users"), where("status", "==", "pending"));
+                const unsubscribe = onSnapshot(q, (snapshot) => {
+                    setPendingUsers(snapshot.docs.map(doc => ({id: doc.id, ...doc.data()})));
+                });
+                return () => unsubscribe();
+            }, []);
 
             return (
               <div className="min-h-screen pt-24 pb-12 px-4 bg-slate-50">
@@ -685,54 +825,61 @@
                   <div className="bg-slate-900 text-white p-8 rounded-[32px] mb-8 flex justify-between items-center shadow-xl">
                     <div>
                       <h1 className="text-3xl font-black mb-2">Moderator Panel</h1>
-                      <p className="text-slate-400">Review pending farmer verifications</p>
+                      <p className="text-slate-400">Review pending verifications</p>
                     </div>
                     <div className="bg-white/10 px-6 py-3 rounded-2xl backdrop-blur-md">
-                      <span className="text-2xl font-bold">{pendingFarmers.length}</span>
+                      <span className="text-2xl font-bold">{pendingUsers.length}</span>
                       <span className="text-slate-400 ml-2 text-sm">Pending</span>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 gap-6">
-                    {pendingFarmers.length === 0 ? (
+                    {pendingUsers.length === 0 ? (
                        <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-gray-200">
                           <CheckCircle className="w-12 h-12 text-green-200 mx-auto mb-4" />
                           <p className="text-gray-400 font-medium">All caught up! No pending applications.</p>
                         </div>
                     ) : (
-                      pendingFarmers.map(farmer => (
-                        <div key={farmer.id} className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col md:flex-row gap-6">
+                      pendingUsers.map(user => (
+                        <div key={user.id} className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col md:flex-row gap-6">
                           <div className="flex-1 space-y-3">
                             <div className="flex items-center gap-3">
                               <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold text-xl">
-                                {farmer.name[0]}
+                                {user.name[0]}
                               </div>
                               <div>
-                                <h3 className="font-bold text-lg text-gray-900">{farmer.name}</h3>
-                                <p className="text-gray-500 text-sm">{farmer.email}</p>
+                                <h3 className="font-bold text-lg text-gray-900">{user.name}</h3>
+                                <p className="text-gray-500 text-sm">{user.email}</p>
+                                <span className="text-xs bg-gray-100 px-2 py-1 rounded text-gray-500 uppercase font-bold">{user.role}</span>
                               </div>
                             </div>
                             <div className="grid grid-cols-2 gap-4 text-sm mt-4 bg-gray-50 p-4 rounded-xl">
                               <div>
                                 <span className="text-gray-400 block text-xs uppercase font-bold">Phone</span>
-                                <span className="font-medium">{farmer.phone}</span>
+                                <span className="font-medium">{user.phone}</span>
                               </div>
-                              <div>
-                                <span className="text-gray-400 block text-xs uppercase font-bold">Govt ID / Aadhar</span>
-                                <span className="font-mono bg-white px-2 py-0.5 rounded border text-gray-700">{farmer.aadhar}</span>
-                              </div>
+                              {user.role === 'farmer' && (
+                                <div>
+                                    <span className="text-gray-400 block text-xs uppercase font-bold">Govt ID / Aadhar</span>
+                                    <span className="font-mono bg-white px-2 py-0.5 rounded border text-gray-700">{user.aadhar}</span>
+                                </div>
+                              )}
                               <div className="col-span-2">
                                 <span className="text-gray-400 block text-xs uppercase font-bold mb-1">Documents</span>
-                                <div className="flex items-center gap-2 text-blue-600 bg-blue-50 p-2 rounded-lg cursor-pointer hover:bg-blue-100 transition-colors">
-                                  <FileText className="w-4 h-4" />
-                                  <span className="text-xs font-bold underline">View Uploaded ID Proof.pdf</span>
-                                </div>
+                                {user.docUrl ? (
+                                    <a href={user.docUrl} target="_blank" className="flex items-center gap-2 text-blue-600 bg-blue-50 p-2 rounded-lg cursor-pointer hover:bg-blue-100 transition-colors">
+                                        <FileText className="w-4 h-4" />
+                                        <span className="text-xs font-bold underline">View Document</span>
+                                    </a>
+                                ) : (
+                                    <span className="text-gray-400 italic text-xs">No document uploaded</span>
+                                )}
                               </div>
                             </div>
                           </div>
 
                           <div className="flex flex-col justify-center gap-3 md:w-64 border-l pl-0 md:pl-6 border-gray-100">
-                            {selectedFarmer === farmer.id ? (
+                            {selectedUser === user.id ? (
                               <div className="animate-in fade-in zoom-in duration-200">
                                 <textarea 
                                   className="w-full text-sm p-3 border rounded-xl mb-2 focus:ring-2 focus:ring-red-200 outline-none" 
@@ -742,13 +889,13 @@
                                 />
                                 <div className="flex gap-2">
                                   <button 
-                                    onClick={() => { handleModAction(farmer.id, 'reject', rejectReason); setSelectedFarmer(null); setRejectReason(""); }}
+                                    onClick={() => { handleModAction(user.id, 'reject', rejectReason); setSelectedUser(null); setRejectReason(""); }}
                                     className="flex-1 bg-red-600 text-white py-2 rounded-lg text-sm font-bold hover:bg-red-700"
                                   >
-                                    Confirm Reject
+                                    Confirm
                                   </button>
                                   <button 
-                                    onClick={() => setSelectedFarmer(null)}
+                                    onClick={() => setSelectedUser(null)}
                                     className="px-3 py-2 bg-gray-200 rounded-lg text-sm font-bold hover:bg-gray-300"
                                   >
                                     Cancel
@@ -758,16 +905,16 @@
                             ) : (
                               <>
                                 <button 
-                                  onClick={() => handleModAction(farmer.id, 'approve')}
+                                  onClick={() => handleModAction(user.id, 'approve')}
                                   className="w-full py-3 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 flex items-center justify-center gap-2 shadow-lg shadow-green-100"
                                 >
-                                  <CheckCircle className="w-5 h-5" /> Approve Farmer
+                                  <CheckCircle className="w-5 h-5" /> Approve
                                 </button>
                                 <button 
-                                  onClick={() => setSelectedFarmer(farmer.id)}
+                                  onClick={() => setSelectedUser(user.id)}
                                   className="w-full py-3 bg-white border-2 border-red-100 text-red-600 rounded-xl font-bold hover:bg-red-50 flex items-center justify-center gap-2"
                                 >
-                                  <XCircle className="w-5 h-5" /> Reject Application
+                                  <XCircle className="w-5 h-5" /> Reject
                                 </button>
                               </>
                             )}
@@ -930,6 +1077,16 @@
               </div>
             </section>
           );
+
+          if (loading) {
+            return (
+              <div className="min-h-screen flex items-center justify-center bg-white">
+                <div className="animate-spin text-green-600">
+                  <Loader2 className="w-12 h-12" />
+                </div>
+              </div>
+            );
+          }
 
           return (
             <div className="font-sans text-gray-900 antialiased selection:bg-green-100 selection:text-green-900 min-h-screen flex flex-col">
