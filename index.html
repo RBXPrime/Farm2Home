@@ -8,7 +8,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Babel for JSX -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <!-- Import Map: Switched to Google's official CDN to fix auth registration error -->
+    <!-- Import Map: Removed Firebase Storage -->
     <script type="importmap">
     {
       "imports": {
@@ -17,8 +17,7 @@
         "lucide-react": "https://esm.sh/lucide-react@0.263.1",
         "firebase/app": "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js",
         "firebase/auth": "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js",
-        "firebase/firestore": "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js",
-        "firebase/storage": "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js"
+        "firebase/firestore": "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js"
       }
     }
     </script>
@@ -36,14 +35,15 @@
           XCircle, AlertCircle, Package, DollarSign, Users, ClipboardList, Loader2, QrCode, Image as ImageIcon, LayoutDashboard
         } from 'lucide-react';
 
-        // --- FIREBASE IMPORTS ---
+        // --- FIREBASE IMPORTS (No Storage) ---
         import { initializeApp } from 'firebase/app';
         import { 
           getAuth, 
           createUserWithEmailAndPassword, 
           signInWithEmailAndPassword, 
           signOut, 
-          onAuthStateChanged 
+          onAuthStateChanged,
+          deleteUser 
         } from 'firebase/auth';
         import { 
           getFirestore, 
@@ -61,13 +61,6 @@
           limit,
           orderBy 
         } from 'firebase/firestore';
-        import { 
-          getStorage, 
-          ref, 
-          uploadBytesResumable, 
-          getDownloadURL,
-          uploadBytes 
-        } from 'firebase/storage';
 
         // --- FIREBASE CONFIGURATION ---
         const firebaseConfig = {
@@ -84,7 +77,26 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const storage = getStorage(app);
+        
+        // --- HELPER: Upload to Cloudinary (Exact Implementation) ---
+        const uploadToCloudinary = async (file) => {
+          const formData = new FormData();
+          formData.append("file", file);
+          formData.append("upload_preset", "Farm2Home");
+
+          const res = await fetch(
+            "https://api.cloudinary.com/v1_1/drf5cbuzu/auto/upload",
+            {
+              method: "POST",
+              body: formData
+            }
+          );
+
+          if (!res.ok) throw new Error("Cloudinary upload failed");
+
+          const data = await res.json();
+          return data.secure_url;
+        };
 
         // --- CONSTANTS ---
         const MOD_EMAILS = ['aadityabillawa@gmail.com', 'zeyamalam@gmail.com'];
@@ -132,7 +144,6 @@
           useEffect(() => {
             const unsubscribe = onAuthStateChanged(auth, async (user) => {
               if (user) {
-                // Fetch extra user details from Firestore
                 const userDoc = await getDoc(doc(db, "users", user.uid));
                 if (userDoc.exists()) {
                   const data = userDoc.data();
@@ -146,15 +157,14 @@
                   
                   setCurrentUser({ uid: user.uid, ...data });
                   
-                  // Automatic Redirection Logic
+                  // Route based on role if just logged in/refreshed
                   if (view === 'auth') {
-                      if (data.role === 'buyer') setView('marketplace');
-                      else if (data.role === 'farmer') setView('dashboard');
-                      else if (data.role === 'mod') setView('dashboard');
+                      if (data.role === 'farmer') setView('farmer-panel');
+                      else if (data.role === 'mod') setView('mod-panel');
+                      else if (data.role === 'buyer') setView('marketplace');
                       else setView('home');
                   }
                 } else {
-                    // Auth exists but no firestore doc (failed signup previously)
                     console.warn("User authenticated but no profile found.");
                     setCurrentUser({ uid: user.uid, role: 'unknown', name: user.email });
                 }
@@ -168,13 +178,11 @@
 
           // --- DATA LISTENERS ---
           useEffect(() => {
-            // Listen for Products
             const q = query(collection(db, "products"));
             const unsubscribeProducts = onSnapshot(q, (snapshot) => {
               const productsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
               setProducts(productsData);
             });
-
             return () => unsubscribeProducts();
           }, []);
 
@@ -187,46 +195,31 @@
 
           const handleSignup = async (formData, file, setUploadProgress) => {
             setLoading(true);
+            let user = null;
             try {
               // 1. Create Auth User
               const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
-              const user = userCredential.user;
+              user = userCredential.user;
               
               let docUrl = "";
 
-              // 2. Upload Document if provided (With Progress)
+              // 2. Upload to Cloudinary
               if (file) {
-                const storageRef = ref(storage, `documents/${user.uid}/${file.name}`);
-                
-                // Use Promise to handle upload task
-                docUrl = await new Promise((resolve, reject) => {
-                    const uploadTask = uploadBytesResumable(storageRef, file);
-                    
-                    uploadTask.on('state_changed', 
-                      (snapshot) => {
-                        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                        if(setUploadProgress) setUploadProgress(progress);
-                      }, 
-                      (error) => reject(error), 
-                      async () => {
-                        const url = await getDownloadURL(uploadTask.snapshot.ref);
-                        resolve(url);
-                      }
-                    );
-                });
+                if(setUploadProgress) setUploadProgress(50); // Simulate progress since fetch doesn't stream
+                docUrl = await uploadToCloudinary(file);
+                if(setUploadProgress) setUploadProgress(100);
               }
 
               // 3. Determine Role
               let role = formData.role;
               let status = (formData.role === 'farmer') ? 'pending' : 'active';
               
-              // Override for Mods
               if (MOD_EMAILS.includes(formData.email.toLowerCase())) {
                   role = 'mod';
                   status = 'active';
               }
 
-              // 3. Save User Profile to Firestore
+              // 4. Save to Firestore
               const userData = {
                 name: formData.name,
                 email: formData.email,
@@ -236,7 +229,7 @@
                 status: status,
                 aadhar: formData.aadhar || "",
                 docUrl: docUrl,
-                qrCodeUrl: "", // For farmers
+                qrCodeUrl: "", 
                 joinedDate: serverTimestamp(),
                 rejectionReason: null
               };
@@ -244,21 +237,21 @@
               await setDoc(doc(db, "users", user.uid), userData);
 
               showNotification("Account created successfully!", "success");
-              
-              // Immediate local update so user doesn't have to wait for auth listener
               setCurrentUser({ uid: user.uid, ...userData });
 
-              if (userData.status === 'pending') {
-                setView('dashboard'); 
-              } else if (role === 'buyer') {
-                setView('marketplace');
-              } else {
-                setView('dashboard');
-              }
+              // Redirect
+              if (role === 'farmer') setView('farmer-panel'); 
+              else if (role === 'mod') setView('mod-panel');
+              else setView('marketplace');
 
             } catch (error) {
               console.error(error);
               showNotification(error.message, "error");
+              
+              // Rollback
+              if (user) {
+                  try { await deleteUser(user); } catch(e) { console.error("Rollback failed", e); }
+              }
             } finally {
               setLoading(false);
               if(setUploadProgress) setUploadProgress(0);
@@ -268,8 +261,19 @@
           const handleLogin = async (email, password) => {
             setLoading(true);
             try {
-              await signInWithEmailAndPassword(auth, email, password);
+              const userCredential = await signInWithEmailAndPassword(auth, email, password);
+              const userDoc = await getDoc(doc(db, "users", userCredential.user.uid));
+              
               showNotification("Logged in successfully", "success");
+              
+              if (userDoc.exists()) {
+                  const data = userDoc.data();
+                  if (data.role === 'farmer') setView('farmer-panel');
+                  else if (data.role === 'mod') setView('mod-panel');
+                  else setView('marketplace');
+              } else {
+                  setView('home');
+              }
             } catch (error) {
               showNotification("Invalid email or password", "error");
             } finally {
@@ -300,11 +304,8 @@
           const uploadFarmerQR = async (file) => {
              if (!file || !currentUser) return;
              try {
-                 const storageRef = ref(storage, `qrcodes/${currentUser.uid}/${file.name}`);
-                 await uploadBytes(storageRef, file);
-                 const qrUrl = await getDownloadURL(storageRef);
+                 const qrUrl = await uploadToCloudinary(file);
                  await updateDoc(doc(db, "users", currentUser.uid), { qrCodeUrl: qrUrl });
-                 // Update local state temporarily
                  setCurrentUser({...currentUser, qrCodeUrl: qrUrl});
                  showNotification("QR Code uploaded successfully!", "success");
              } catch (error) {
@@ -315,7 +316,6 @@
 
           const placeOrder = async (orderPayload) => {
             try {
-              // 1. Create Order
               await addDoc(collection(db, "orders"), {
                 ...orderPayload,
                 date: new Date().toISOString(),
@@ -323,7 +323,6 @@
                 createdAt: serverTimestamp()
               });
 
-              // 2. Update Stock
               for (const item of orderPayload.items) {
                 const prodRef = doc(db, "products", item.id);
                 const prodSnap = await getDoc(prodRef);
@@ -333,7 +332,7 @@
                 }
               }
 
-              showNotification("Order placed & Screenshot sent to Farmer!", "success");
+              showNotification("Order placed & Screenshot sent!", "success");
             } catch (error) {
               console.error(error);
               showNotification("Failed to place order", "error");
@@ -393,14 +392,13 @@
                         {currentUser.name} • <span className="text-green-700 uppercase font-bold">{currentUser.role}</span>
                       </span>
                       
-                      {/* ROLE BASED NAVIGATION */}
                       {currentUser.role === 'farmer' && (
-                        <button onClick={() => setView('dashboard')} className="flex items-center gap-2 bg-green-100 text-green-800 px-4 py-2 rounded-lg font-bold hover:bg-green-200 transition-colors">
+                        <button onClick={() => setView('farmer-panel')} className="flex items-center gap-2 bg-green-100 text-green-800 px-4 py-2 rounded-lg font-bold hover:bg-green-200 transition-colors">
                           <LayoutDashboard className="w-4 h-4"/> Farmer Panel
                         </button>
                       )}
                       {currentUser.role === 'mod' && (
-                        <button onClick={() => setView('dashboard')} className="flex items-center gap-2 bg-purple-100 text-purple-800 px-4 py-2 rounded-lg font-bold hover:bg-purple-200 transition-colors">
+                        <button onClick={() => setView('mod-panel')} className="flex items-center gap-2 bg-purple-100 text-purple-800 px-4 py-2 rounded-lg font-bold hover:bg-purple-200 transition-colors">
                           <ShieldCheck className="w-4 h-4"/> Mod Panel
                         </button>
                       )}
@@ -422,7 +420,6 @@
             </nav>
           );
 
-          // ... (AboutUs, FeaturesSection, Footer components remain same as before) ...
           const AboutUs = () => (
             <section className="py-32 bg-white">
               <div className="max-w-4xl mx-auto px-4 text-center">
@@ -533,14 +530,14 @@
                           {uploadProgress > 0 && uploadProgress < 100 && (
                               <div className="w-full bg-gray-200 rounded-full h-2.5">
                                 <div className="bg-green-600 h-2.5 rounded-full" style={{width: `${uploadProgress}%`}}></div>
-                                <p className="text-xs text-center mt-1 text-green-700">Uploading: {Math.round(uploadProgress)}%</p>
+                                <p className="text-xs text-center mt-1 text-green-700">Uploading...</p>
                               </div>
                           )}
                         </div>
                       )}
 
                       <button disabled={loading} className="w-full py-4 bg-green-700 text-white font-bold text-lg rounded-xl hover:bg-green-800 transition-all flex justify-center">
-                        {loading ? <div className="flex items-center gap-2"><Loader2 className="animate-spin" /> {uploadProgress > 0 ? "Uploading Document..." : "Processing..."}</div> : (authMode === 'login' ? 'Sign In' : 'Create Account')}
+                        {loading ? <div className="flex items-center gap-2"><Loader2 className="animate-spin" /> {uploadProgress > 0 ? "Uploading..." : "Processing..."}</div> : (authMode === 'login' ? 'Sign In' : 'Create Account')}
                       </button>
                     </form>
                     <div className="text-center pt-4">
@@ -753,7 +750,6 @@
              const [uploading, setUploading] = useState(false);
 
              useEffect(() => {
-                 // Group items by farmer
                  const groups = {};
                  cart.forEach(item => {
                      if (!groups[item.farmerId]) groups[item.farmerId] = [];
@@ -761,7 +757,6 @@
                  });
                  setGroupedItems(groups);
 
-                 // Fetch QRs
                  const fetchQRs = async () => {
                      const qrs = {};
                      for (const farmerId of Object.keys(groups)) {
@@ -782,9 +777,7 @@
                          const file = screenshots[farmerId];
                          let ssUrl = "";
                          if (file) {
-                             const storageRef = ref(storage, `payments/${Date.now()}_${file.name}`);
-                             await uploadBytes(storageRef, file);
-                             ssUrl = await getDownloadURL(storageRef);
+                             ssUrl = await uploadToCloudinary(file);
                          }
                          
                          const items = groupedItems[farmerId];
@@ -957,6 +950,8 @@
                 {view === 'home' && <><Hero /><FeaturesSection /></>}
                 {view === 'about' && <AboutUs />}
                 {view === 'auth' && <AuthScreen />}
+                {view === 'farmer-panel' && currentUser?.role === 'farmer' && <FarmerDashboard />}
+                {view === 'mod-panel' && currentUser?.role === 'mod' && <ModDashboard />}
                 {view === 'dashboard' && currentUser?.role === 'farmer' && <FarmerDashboard />}
                 {view === 'dashboard' && currentUser?.role === 'mod' && <ModDashboard />}
                 {view === 'dashboard' && currentUser?.role === 'buyer' && <BuyerMarketplace />}
