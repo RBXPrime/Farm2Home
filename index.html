@@ -249,7 +249,14 @@
           useEffect(() => {
             const q = query(getCollection("products"));
             const unsubscribeProducts = onSnapshot(q, (snapshot) => {
-              setProducts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+              // Convert to array and Sort by createdAt descending (newest first)
+              const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+              items.sort((a, b) => {
+                  const timeA = a.createdAt?.seconds || 0;
+                  const timeB = b.createdAt?.seconds || 0;
+                  return timeB - timeA;
+              });
+              setProducts(items);
             }, (error) => {
                 console.log("Product fetch error:", error);
             });
@@ -394,9 +401,8 @@
                 </div>
                 <div className="hidden md:flex items-center gap-8 font-medium text-stone-500">
                    <button onClick={() => setView('home')} className={`hover:text-green-700 transition-colors ${view === 'home' ? 'text-green-700 font-bold' : ''}`}>Home</button>
-                   {currentUser?.role === 'buyer' && (
-                     <button onClick={() => setView('marketplace')} className={`hover:text-green-700 transition-colors ${view === 'marketplace' ? 'text-green-700 font-bold' : ''}`}>Marketplace</button>
-                   )}
+                   {/* Changed Marketplace to Shop */}
+                   <button onClick={() => setView('marketplace')} className={`hover:text-green-700 transition-colors ${view === 'marketplace' ? 'text-green-700 font-bold' : ''}`}>Shop</button>
                    <button onClick={() => setView('about')} className={`hover:text-green-700 transition-colors ${view === 'about' ? 'text-green-700 font-bold' : ''}`}>About Us</button>
                 </div>
                 <div className="hidden md:flex items-center gap-4">
@@ -1342,9 +1348,19 @@
               <main className="flex-grow">
                 {view === 'home' && <Hero />}
                 {view === 'about' && (
-                    <div className="pt-32 pb-20 text-center max-w-2xl mx-auto px-4">
-                        <h1 className="text-4xl font-black mb-6">Our Mission</h1>
-                        <p className="text-lg text-stone-500 leading-relaxed">We empower local farmers by cutting out the middleman, ensuring they get fair pay while you get the freshest, healthiest produce possible. We believe in transparency, sustainability, and community.</p>
+                    <div className="pt-32 pb-20 text-center max-w-4xl mx-auto px-6">
+                        <h1 className="text-5xl font-black mb-8 text-stone-900">Empowering Farmers, Nourishing Communities</h1>
+                        <div className="prose prose-lg mx-auto text-stone-600 leading-relaxed space-y-6">
+                            <p>
+                                At Farm2Home, our primary goal is to revolutionize the agricultural landscape by giving farmers a dedicated, transparent, and fair marketplace. We believe that those who feed the nation deserve the best support.
+                            </p>
+                            <p>
+                                We provide proper help to farmers by eliminating middlemen, allowing them to set their own prices and interact directly with consumers. This ensures they get the true value of their hard work.
+                            </p>
+                            <p>
+                                For our buyers, this means access to the freshest produce, harvested at peak ripeness and delivered with care. We are building a community rooted in trust, sustainability, and mutual growth.
+                            </p>
+                        </div>
                     </div>
                 )}
                 {view === 'auth' && <AuthScreen />}
@@ -1371,10 +1387,10 @@
                               <div>
                                   <h4 className="font-bold text-stone-900 mb-6">Quick Links</h4>
                                   <ul className="space-y-4 text-stone-500 text-sm">
-                                      <li><a href="#" className="hover:text-green-600 transition-colors">Home</a></li>
-                                      <li><a href="#" className="hover:text-green-600 transition-colors">Marketplace</a></li>
-                                      <li><a href="#" className="hover:text-green-600 transition-colors">About Us</a></li>
-                                      <li><a href="#" className="hover:text-green-600 transition-colors">Join as Farmer</a></li>
+                                      <li><button onClick={() => setView('home')} className="hover:text-green-600 transition-colors">Home</button></li>
+                                      <li><button onClick={() => setView('marketplace')} className="hover:text-green-600 transition-colors">Shop</button></li>
+                                      <li><button onClick={() => setView('about')} className="hover:text-green-600 transition-colors">About Us</button></li>
+                                      <li><button onClick={() => { setView('auth'); setAuthMode('signup'); }} className="hover:text-green-600 transition-colors">Join as Farmer</button></li>
                                   </ul>
                               </div>
                               <div>
@@ -1383,7 +1399,7 @@
                                       <li><a href="#" className="hover:text-green-600 transition-colors">Refund Policy</a></li>
                                       <li><a href="#" className="hover:text-green-600 transition-colors">Shipping Policy</a></li>
                                       <li><a href="#" className="hover:text-green-600 transition-colors">Terms of Service</a></li>
-                                      <li><a href="#" className="hover:text-green-600 transition-colors">24/7 Support</a></li>
+                                      <li><a href="mailto:farm2home@support.in" className="hover:text-green-600 transition-colors">farm2home@support.in</a></li>
                                   </ul>
                               </div>
                           </div>
