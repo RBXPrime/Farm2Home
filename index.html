@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Farm2Home - Bubble Edition</title>
+    <title>Farm2Home - Fresh Produce Marketplace</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Babel for JSX -->
@@ -22,26 +22,74 @@
     }
     </script>
     <style>
-        /* Custom Scrollbar for Bubble Feel */
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
+        
+        body { 
+            font-family: 'Outfit', sans-serif; 
+            background-color: #FDFCF8; /* Cream/Paper background for Eco feel */
+            color: #1C1917; /* Stone-900 */
+        }
+        
+        /* Eco Glass Effect */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Better Box - Organic Feel */
+        .better-box {
+            background: white;
+            border-radius: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px -1px rgba(0, 0, 0, 0.02);
+            border: 1px solid #F0FDF4; /* Green-50 */
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .better-box:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 10px 10px -5px rgba(0, 0, 0, 0.01);
+            border-color: #86EFAC; /* Green-300 */
+        }
+
+        /* Inputs */
+        .input-better {
+            width: 100%;
+            padding: 1rem 1.25rem;
+            background-color: #FAFAF9; /* Stone-50 */
+            border: 1px solid #E7E5E4; /* Stone-200 */
+            border-radius: 1rem;
+            transition: all 0.2s;
+            outline: none;
+            color: #1C1917;
+            font-weight: 500;
+        }
+        
+        .input-better:focus {
+            background-color: white;
+            border-color: #15803D; /* Green-700 */
+            box-shadow: 0 0 0 4px rgba(21, 128, 61, 0.1);
+        }
+
+        /* Custom Scrollbar */
         ::-webkit-scrollbar {
-            width: 12px;
+            width: 8px;
         }
         ::-webkit-scrollbar-track {
-            background: #f0fdf4; 
+            background: transparent;
         }
         ::-webkit-scrollbar-thumb {
-            background-color: #86efac; 
-            border-radius: 20px; 
-            border: 3px solid #f0fdf4;
+            background: #D6D3D1;
+            border-radius: 4px;
         }
-        body {
-            background-color: #f0fdf4;
-            background-image: radial-gradient(#dcfce7 2px, transparent 2px);
-            background-size: 32px 32px;
+        ::-webkit-scrollbar-thumb:hover {
+            background: #A8A29E;
         }
     </style>
 </head>
-<body class="text-gray-800 font-sans antialiased selection:bg-lime-300 selection:text-green-900">
+<body class="antialiased selection:bg-green-100 selection:text-green-900">
     <div id="root"></div>
 
     <script type="text/babel" data-type="module">
@@ -51,7 +99,10 @@
           Leaf, Truck, ShieldCheck, Heart, Search, ShoppingCart, 
           User, ChevronRight, ArrowRight, Menu, X, MapPin, Star, 
           Facebook, Twitter, Instagram, Upload, FileText, CheckCircle, 
-          XCircle, AlertCircle, Package, DollarSign, Users, ClipboardList, Loader2, QrCode, Image as ImageIcon, LayoutDashboard, Info, Home, Mail, Trash2, Box, Edit2, AlertTriangle, Copy, Phone, ExternalLink, Sparkles
+          XCircle, AlertCircle, Package, DollarSign, Users, ClipboardList, 
+          Loader2, QrCode, Image as ImageIcon, LayoutDashboard, Info, 
+          Home, Mail, Trash2, Box, Edit2, AlertTriangle, Copy, Phone, 
+          ExternalLink, Settings, Wallet, FileCheck, Bike, Headphones, RefreshCw, Sprout
         } from 'lucide-react';
 
         // --- FIREBASE IMPORTS ---
@@ -62,7 +113,8 @@
           signInWithEmailAndPassword, 
           signOut, 
           onAuthStateChanged,
-          deleteUser 
+          deleteUser,
+          signInAnonymously
         } from 'firebase/auth';
         import { 
           getFirestore, 
@@ -97,67 +149,60 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
         
+        // Helpers for clean refs
+        const getCollection = (name) => collection(db, name);
+        const getDocRef = (colName, docId) => doc(db, colName, docId);
+        
         // --- HELPER: Upload to Cloudinary ---
         const uploadToCloudinary = async (file) => {
           const formData = new FormData();
           formData.append("file", file);
           formData.append("upload_preset", "Farm2Home");
-          const res = await fetch("https://api.cloudinary.com/v1_1/drf5cbuzu/auto/upload", { method: "POST", body: formData });
+
+          const res = await fetch(
+            "https://api.cloudinary.com/v1_1/drf5cbuzu/auto/upload",
+            {
+              method: "POST",
+              body: formData
+            }
+          );
+
           if (!res.ok) throw new Error("Cloudinary upload failed");
+
           const data = await res.json();
           return data.secure_url;
         };
 
         const MOD_EMAILS = ['aadityabillawa@gmail.com', 'zeyamalam@gmail.com'];
 
-        const FEATURES = [
-          { title: '100% Organic', icon: <Leaf className="w-8 h-8 text-white" />, color: 'bg-green-500', description: 'Certified organic, grown with love.' },
-          { title: 'Fast Delivery', icon: <Truck className="w-8 h-8 text-white" />, color: 'bg-emerald-500', description: 'Farm to table in record time.' },
-          { title: 'Quality First', icon: <ShieldCheck className="w-8 h-8 text-white" />, color: 'bg-teal-500', description: 'Hand-picked premium quality.' },
-          { title: 'Community', icon: <Heart className="w-8 h-8 text-white" />, color: 'bg-lime-500', description: 'Supporting local growers.' },
-        ];
-
-        // --- BUBBLE COMPONENTS ---
-        const BubbleButton = ({ children, onClick, variant = 'primary', className = '', disabled = false, type = 'button' }) => {
-            const baseStyle = "px-6 py-3 rounded-full font-bold transition-all transform hover:scale-105 active:scale-95 shadow-lg flex items-center justify-center gap-2";
-            const variants = {
-                primary: "bg-green-600 text-white hover:bg-green-500 shadow-green-200",
-                secondary: "bg-white text-green-700 hover:bg-green-50 border-2 border-green-100",
-                danger: "bg-red-500 text-white hover:bg-red-400 shadow-red-200",
-                dark: "bg-gray-900 text-white hover:bg-gray-800"
-            };
-            return (
-                <button type={type} disabled={disabled} onClick={onClick} className={`${baseStyle} ${variants[variant]} ${disabled ? 'opacity-50 cursor-not-allowed hover:scale-100' : ''} ${className}`}>
-                    {children}
-                </button>
-            );
-        };
-
-        const BubbleInput = ({ ...props }) => (
-            <input {...props} className={`w-full px-6 py-4 rounded-full bg-white border-2 border-green-50 focus:border-green-400 focus:ring-4 focus:ring-green-100 outline-none transition-all shadow-sm text-gray-700 placeholder-gray-400 ${props.className}`} />
-        );
-
-        const BubbleCard = ({ children, className = '' }) => (
-            <div className={`bg-white rounded-[2.5rem] p-8 shadow-xl shadow-green-900/5 border border-white/50 backdrop-blur-sm ${className}`}>
-                {children}
+        // --- REUSABLE COMPONENTS ---
+        const Notification = ({ msg, type }) => (
+            <div className={`fixed bottom-6 right-6 z-[100] px-6 py-4 rounded-2xl text-white font-bold shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] animate-in slide-in-from-bottom-10 fade-in duration-300 flex items-center gap-3 ${type === 'error' ? 'bg-red-500' : 'bg-emerald-700'}`}>
+                {type === 'error' ? <XCircle className="w-6 h-6"/> : <CheckCircle className="w-6 h-6"/>}
+                {msg}
             </div>
         );
 
         const ConfirmationModal = ({ isOpen, title, message, onConfirm, onCancel, confirmText = "Confirm", isDangerous = false }) => {
             if (!isOpen) return null;
             return (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-green-900/40 backdrop-blur-md animate-in fade-in duration-300">
-                    <BubbleCard className="max-w-md w-full text-center relative overflow-hidden">
-                        <div className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 ${isDangerous ? 'bg-red-100 text-red-500' : 'bg-green-100 text-green-500'}`}>
-                            {isDangerous ? <AlertTriangle className="w-10 h-10"/> : <Info className="w-10 h-10"/>}
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white rounded-[2rem] p-8 max-w-md w-full shadow-2xl scale-100 animate-in zoom-in-95 duration-200 border border-stone-100 relative">
+                        <button onClick={onCancel} className="absolute top-4 right-4 p-2 bg-stone-100 rounded-full hover:bg-stone-200 transition-colors"><X className="w-5 h-5 text-stone-500"/></button>
+                        <div className="flex flex-col items-center text-center">
+                            <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-6 ${isDangerous ? 'bg-red-50 text-red-500' : 'bg-emerald-50 text-emerald-600'}`}>
+                                {isDangerous ? <AlertTriangle className="w-8 h-8"/> : <Info className="w-8 h-8"/>}
+                            </div>
+                            <h3 className="text-2xl font-bold text-stone-900 mb-2">{title}</h3>
+                            <p className="text-stone-500 mb-8 leading-relaxed">{message}</p>
+                            <div className="flex gap-3 w-full">
+                                <button onClick={onCancel} className="flex-1 py-3.5 rounded-xl font-bold text-stone-500 hover:bg-stone-50 transition-colors">Cancel</button>
+                                <button onClick={onConfirm} className={`flex-1 py-3.5 rounded-xl font-bold text-white shadow-lg transition-all active:scale-95 ${isDangerous ? 'bg-red-500 hover:bg-red-600 shadow-red-500/30' : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/30'}`}>
+                                    {confirmText}
+                                </button>
+                            </div>
                         </div>
-                        <h3 className="text-3xl font-black text-gray-800 mb-3">{title}</h3>
-                        <p className="text-gray-500 mb-8 font-medium">{message}</p>
-                        <div className="flex gap-4 justify-center">
-                            <BubbleButton variant="secondary" onClick={onCancel}>Cancel</BubbleButton>
-                            <BubbleButton variant={isDangerous ? "danger" : "primary"} onClick={onConfirm}>{confirmText}</BubbleButton>
-                        </div>
-                    </BubbleCard>
+                    </div>
                 </div>
             );
         };
@@ -171,14 +216,15 @@
           const [isMenuOpen, setIsMenuOpen] = useState(false);
           const [notification, setNotification] = useState(null);
 
+          // --- AUTH ---
           useEffect(() => {
             const unsubscribe = onAuthStateChanged(auth, async (user) => {
-              if (user) {
-                const userDoc = await getDoc(doc(db, "users", user.uid));
+              if (user && !user.isAnonymous) {
+                const userDoc = await getDoc(getDocRef("users", user.uid));
                 if (userDoc.exists()) {
                   const data = userDoc.data();
                   if (MOD_EMAILS.includes(user.email.toLowerCase()) && data.role !== 'mod') {
-                      await updateDoc(doc(db, "users", user.uid), { role: 'mod', status: 'active' });
+                      await updateDoc(getDocRef("users", user.uid), { role: 'mod', status: 'active' });
                       data.role = 'mod';
                   }
                   setCurrentUser({ uid: user.uid, ...data });
@@ -199,14 +245,18 @@
             return () => unsubscribe();
           }, []);
 
+          // --- DATA ---
           useEffect(() => {
-            const q = query(collection(db, "products"));
+            const q = query(getCollection("products"));
             const unsubscribeProducts = onSnapshot(q, (snapshot) => {
               setProducts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+            }, (error) => {
+                console.log("Product fetch error:", error);
             });
             return () => unsubscribeProducts();
           }, []);
 
+          // --- ACTIONS ---
           const showNotification = (msg, type) => {
             setNotification({ msg, type });
             setTimeout(() => setNotification(null), 4000);
@@ -226,685 +276,1124 @@
               }
               let role = formData.role;
               let status = (formData.role === 'farmer') ? 'pending' : 'active';
-              if (MOD_EMAILS.includes(formData.email.toLowerCase())) { role = 'mod'; status = 'active'; }
+              if (MOD_EMAILS.includes(formData.email.toLowerCase())) {
+                  role = 'mod';
+                  status = 'active';
+              }
               const userData = {
-                name: formData.name, email: formData.email, phone: formData.phone || "",
-                address: formData.address || "", role: role, status: status, aadhar: formData.aadhar || "",
-                docUrl: docUrl, qrCodeUrl: "", upiId: "", joinedDate: serverTimestamp(), rejectionReason: null
+                name: formData.name,
+                email: formData.email,
+                phone: formData.phone || "",
+                address: formData.address || "",
+                role: role,
+                status: status,
+                aadhar: formData.aadhar || "",
+                docUrl: docUrl,
+                qrCodeUrl: "", 
+                upiId: "",
+                joinedDate: serverTimestamp(),
+                rejectionReason: null
               };
-              await setDoc(doc(db, "users", user.uid), userData);
-              showNotification("Welcome to the family!", "success");
+              await setDoc(getDocRef("users", user.uid), userData);
+              showNotification("Account created successfully!", "success");
               setCurrentUser({ uid: user.uid, ...userData });
-              if (role === 'farmer') setView('farmer-panel'); else if (role === 'mod') setView('mod-panel'); else setView('marketplace');
-            } catch (error) { showNotification(error.message, "error"); if (user) try { await deleteUser(user); } catch(e) {} } finally { setLoading(false); if(setUploadProgress) setUploadProgress(0); }
+              if (role === 'farmer') setView('farmer-panel'); 
+              else if (role === 'mod') setView('mod-panel');
+              else setView('marketplace');
+            } catch (error) {
+              console.error(error);
+              showNotification(error.message, "error");
+              if (user) { try { await deleteUser(user); } catch(e) {} }
+            } finally {
+              setLoading(false);
+              if(setUploadProgress) setUploadProgress(0);
+            }
           };
 
           const handleLogin = async (email, password) => {
             setLoading(true);
             try {
               const userCredential = await signInWithEmailAndPassword(auth, email, password);
-              const userDoc = await getDoc(doc(db, "users", userCredential.user.uid));
-              showNotification("Welcome back!", "success");
+              const userDoc = await getDoc(getDocRef("users", userCredential.user.uid));
+              showNotification("Logged in successfully", "success");
               if (userDoc.exists()) {
                   const data = userDoc.data();
-                  if (data.role === 'farmer') setView('farmer-panel'); else if (data.role === 'mod') setView('mod-panel'); else setView('marketplace');
-              } else setView('home');
-            } catch (error) { showNotification("Invalid credentials", "error"); } finally { setLoading(false); }
-          };
-
-          const handleLogout = async () => { await signOut(auth); setView('home'); };
-
-          const addProduct = async (productData) => {
-            if (!currentUser) return;
-            try {
-              await addDoc(collection(db, "products"), { ...productData, farmerId: currentUser.uid, farmerName: currentUser.name, status: 'pending', createdAt: serverTimestamp() });
-              showNotification("Product pending approval!", "success");
-            } catch (error) { showNotification("Error adding product", "error"); }
-          };
-
-          const savePaymentSettings = async (file, upiId) => {
-             if (!currentUser) return;
-             try {
-                 let updateData = { upiId };
-                 if (file) updateData.qrCodeUrl = await uploadToCloudinary(file);
-                 await updateDoc(doc(db, "users", currentUser.uid), updateData);
-                 setCurrentUser({...currentUser, ...updateData});
-                 showNotification("Settings saved!", "success");
-             } catch (error) { showNotification("Failed to save", "error"); }
-          };
-
-          const placeOrder = async (orderPayload) => {
-            try {
-              await addDoc(collection(db, "orders"), { ...orderPayload, date: new Date().toISOString(), status: 'Under Review', createdAt: serverTimestamp() });
-              for (const item of orderPayload.items) {
-                const prodRef = doc(db, "products", item.id);
-                const prodSnap = await getDoc(prodRef);
-                if (prodSnap.exists()) await updateDoc(prodRef, { stock: prodSnap.data().stock - item.quantity });
+                  if (data.role === 'farmer') setView('farmer-panel');
+                  else if (data.role === 'mod') setView('mod-panel');
+                  else setView('marketplace');
+              } else {
+                  setView('home');
               }
-              showNotification("Order placed! Awaiting farmer confirmation.", "success");
-            } catch (error) { showNotification("Failed to place order", "error"); }
+            } catch (error) {
+              showNotification("Invalid email or password", "error");
+            } finally {
+              setLoading(false);
+            }
+          };
+
+          const handleLogout = async () => {
+            await signOut(auth);
+            setView('home');
           };
 
           const handleModAction = async (userId, action, reason = "") => {
             try {
-              await updateDoc(doc(db, "users", userId), { status: action === 'approve' ? 'active' : 'rejected', rejectionReason: reason });
+              await updateDoc(getDocRef("users", userId), {
+                status: action === 'approve' ? 'active' : 'rejected',
+                rejectionReason: reason
+              });
               showNotification(`User ${action === 'approve' ? 'Approved' : 'Rejected'}`, "success");
-            } catch (error) { showNotification("Action failed", "error"); }
+            } catch (error) {
+              showNotification("Action failed", "error");
+            }
           };
 
           const handleProductApproval = async (productId, action, reason = "") => {
             try {
-                await updateDoc(doc(db, "products", productId), { status: action === 'reject' ? 'rejected' : 'approved', rejectionReason: action === 'reject' ? reason : null });
-                showNotification(`Product ${action === 'reject' ? 'Rejected' : 'Approved'}`, "success");
-            } catch (error) { showNotification("Action failed", "error"); }
+                await updateDoc(getDocRef("products", productId), { 
+                    status: action === 'reject' ? 'rejected' : 'approved',
+                    rejectionReason: action === 'reject' ? reason : null 
+                });
+                showNotification(`Product ${action === 'reject' ? 'rejected' : 'approved'}`, "success");
+            } catch (error) {
+                showNotification("Action failed", "error");
+            }
+          };
+          
+          const handleOrderPaymentVerification = async (orderId) => {
+              try {
+                  await updateDoc(getDocRef("orders", orderId), {
+                      status: 'Payment Verified'
+                  });
+                  showNotification("Payment verified successfully!", "success");
+              } catch (e) {
+                  showNotification("Failed to verify payment", "error");
+              }
+          };
+          
+          const handleFarmerOrderAction = async (orderId, status) => {
+              try {
+                  await updateDoc(getDocRef("orders", orderId), {
+                      status: status
+                  });
+                  showNotification(`Order marked as ${status}!`, "success");
+              } catch (e) {
+                  showNotification("Failed to update order", "error");
+              }
           };
 
           // --- UI COMPONENTS ---
-          
           const Navbar = () => (
-            <nav className="fixed top-6 left-0 right-0 z-50 flex justify-center px-4">
-              <div className="bg-white/80 backdrop-blur-xl border border-white/40 shadow-xl shadow-green-900/5 rounded-full px-6 py-3 max-w-6xl w-full flex justify-between items-center transition-all duration-300">
-                <div className="flex items-center gap-2 cursor-pointer group" onClick={() => setView('home')}>
-                  <div className="bg-green-500 p-2 rounded-full text-white group-hover:rotate-12 transition-transform shadow-lg shadow-green-200">
-                    <Leaf size={20} fill="currentColor" />
+            <nav className="fixed top-0 left-0 right-0 bg-white/80 backdrop-blur-md z-50 border-b border-stone-100 h-20 transition-all">
+              <div className="max-w-7xl mx-auto px-4 h-full flex justify-between items-center">
+                <div className="flex items-center gap-3 cursor-pointer group" onClick={() => setView('home')}>
+                  <div className="bg-gradient-to-br from-green-600 to-emerald-500 p-2.5 rounded-xl shadow-lg shadow-green-500/20 group-hover:scale-110 transition-transform duration-300">
+                    <Leaf className="text-white w-6 h-6" />
                   </div>
-                  <span className="text-xl font-black text-gray-800 tracking-tight">Farm<span className="text-green-500">2</span>Home</span>
+                  <span className="text-2xl font-bold text-stone-800 tracking-tight">Farm<span className="text-green-600">2</span>Home</span>
                 </div>
-                
-                <div className="hidden md:flex items-center gap-2 font-bold text-sm text-gray-500 bg-gray-100/50 p-1.5 rounded-full">
-                   {['home', 'marketplace', 'about'].map((v) => (
-                       <button key={v} onClick={() => currentUser?.role === 'farmer' && v === 'marketplace' ? setView('farmer-panel') : setView(v)} className={`px-5 py-2 rounded-full transition-all ${view === v ? 'bg-white text-green-600 shadow-md shadow-gray-200' : 'hover:bg-gray-200/50'}`}>
-                           {v.charAt(0).toUpperCase() + v.slice(1)}
-                       </button>
-                   ))}
+                <div className="hidden md:flex items-center gap-8 font-medium text-stone-500">
+                   <button onClick={() => setView('home')} className={`hover:text-green-700 transition-colors ${view === 'home' ? 'text-green-700 font-bold' : ''}`}>Home</button>
+                   {currentUser?.role === 'buyer' && (
+                     <button onClick={() => setView('marketplace')} className={`hover:text-green-700 transition-colors ${view === 'marketplace' ? 'text-green-700 font-bold' : ''}`}>Marketplace</button>
+                   )}
+                   <button onClick={() => setView('about')} className={`hover:text-green-700 transition-colors ${view === 'about' ? 'text-green-700 font-bold' : ''}`}>About Us</button>
                 </div>
-
-                <div className="hidden md:flex items-center gap-3">
+                <div className="hidden md:flex items-center gap-4">
                   {!currentUser ? (
                     <>
-                      <button onClick={() => { setView('auth'); setAuthMode('login'); }} className="px-5 py-2.5 rounded-full font-bold text-gray-500 hover:bg-gray-100 transition-colors">Sign In</button>
-                      <BubbleButton onClick={() => { setView('auth'); setAuthMode('signup'); }} className="!px-6 !py-2.5 !text-sm">Join Now</BubbleButton>
+                      <button onClick={() => { setView('auth'); setAuthMode('login'); }} className="text-stone-600 font-bold hover:text-green-700">Sign In</button>
+                      <button onClick={() => { setView('auth'); setAuthMode('signup'); }} className="px-6 py-2.5 bg-stone-900 text-white font-bold rounded-xl hover:bg-stone-800 transition-all shadow-lg active:scale-95">Get Started</button>
                     </>
                   ) : (
-                    <div className="flex items-center gap-3 pl-2 bg-gray-50 rounded-full pr-1 py-1 border border-gray-100">
-                      <div className="flex flex-col items-end leading-none">
-                          <span className="text-xs font-bold text-gray-800">{currentUser.name}</span>
-                          <span className="text-[10px] uppercase font-bold text-green-500">{currentUser.role}</span>
+                    <div className="flex items-center gap-3 pl-4 border-l border-stone-200">
+                      <div className="flex flex-col items-end leading-tight">
+                          <span className="font-bold text-stone-800">{currentUser.name}</span>
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-green-700 bg-green-50 px-2 py-0.5 rounded-full">{currentUser.role}</span>
                       </div>
-                      <div className="w-8 h-8 bg-green-200 rounded-full flex items-center justify-center text-green-700 font-bold border-2 border-white shadow-sm">
-                          {currentUser.name[0]}
-                      </div>
-                      <button onClick={handleLogout} className="bg-white p-2 rounded-full hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors shadow-sm ml-1">
-                          <ExternalLink size={14}/>
-                      </button>
+                      
+                      {currentUser.role === 'farmer' && <button onClick={() => setView('farmer-panel')} className="p-2.5 bg-green-50 text-green-700 rounded-xl hover:bg-green-100 transition-colors"><LayoutDashboard className="w-5 h-5"/></button>}
+                      {currentUser.role === 'mod' && <button onClick={() => setView('mod-panel')} className="p-2.5 bg-purple-50 text-purple-700 rounded-xl hover:bg-purple-100 transition-colors"><ShieldCheck className="w-5 h-5"/></button>}
+                      <button onClick={handleLogout} className="p-2.5 bg-stone-100 text-stone-500 rounded-xl hover:bg-red-50 hover:text-red-500 transition-all"><XCircle className="w-5 h-5"/></button>
                     </div>
                   )}
                 </div>
-                <button className="md:hidden p-2 bg-gray-100 rounded-full" onClick={() => setIsMenuOpen(!isMenuOpen)}>{isMenuOpen ? <X size={20}/> : <Menu size={20}/>}</button>
+                <button className="md:hidden text-stone-800" onClick={() => setIsMenuOpen(!isMenuOpen)}>{isMenuOpen ? <X /> : <Menu />}</button>
               </div>
             </nav>
           );
-
-          const AboutUs = () => (
-            <div className="pt-32 pb-20 relative overflow-hidden">
-                <div className="absolute top-20 right-0 w-96 h-96 bg-green-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob"></div>
-                <div className="absolute top-40 left-0 w-96 h-96 bg-lime-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000"></div>
-                <div className="max-w-4xl mx-auto px-6 relative z-10 text-center">
-                    <span className="inline-block py-2 px-6 rounded-full bg-white border border-green-100 text-green-600 font-bold text-sm shadow-lg mb-8">🌱 Our Mission</span>
-                    <h2 className="text-6xl font-black text-gray-800 mb-8 leading-tight">Grown by <span className="text-green-500">Neighbors</span>,<br/>Enjoyed by Friends.</h2>
-                    <BubbleCard className="text-left prose prose-lg max-w-none text-gray-500 leading-relaxed mb-12 relative overflow-visible">
-                        <div className="absolute -top-6 -left-6 text-6xl opacity-20 rotate-12">🥦</div>
-                        <div className="absolute -bottom-6 -right-6 text-6xl opacity-20 -rotate-12">🥕</div>
-                        <p>At Farm2Home, we don't just sell vegetables; we build relationships. We believe the path from soil to soul should be short, transparent, and joyful.</p>
-                        <p>By empowering local farmers with a direct marketplace, we ensure they get fair value for their hard work, while you get produce that still tastes like nature intended.</p>
-                    </BubbleCard>
-                    <div className="grid md:grid-cols-3 gap-6">
-                        {[
-                            {icon: <Users className="w-6 h-6"/>, title: "Fair Trade", desc: "100% earnings to farmers"},
-                            {icon: <Heart className="w-6 h-6"/>, title: "Community", desc: "Building local resilience"},
-                            {icon: <Leaf className="w-6 h-6"/>, title: "Sustainable", desc: "Zero-mile food print"}
-                        ].map((item,i) => (
-                            <div key={i} className="bg-white p-6 rounded-[2rem] shadow-lg shadow-green-900/5 flex flex-col items-center">
-                                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center text-green-600 mb-4">{item.icon}</div>
-                                <h3 className="font-bold text-gray-800 mb-1">{item.title}</h3>
-                                <p className="text-sm text-gray-400">{item.desc}</p>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </div>
-          );
-
+          
           const AuthScreen = () => {
-            const [role, setRole] = useState('buyer'); 
-            const [file, setFile] = useState(null);
-            const [uploadProgress, setUploadProgress] = useState(0);
-            const [formData, setFormData] = useState({ name: '', email: '', password: '', phone: '', address: '', aadhar: '' });
+             const [role, setRole] = useState('buyer'); 
+             const [file, setFile] = useState(null);
+             const [uploadProgress, setUploadProgress] = useState(0);
+             const [formData, setFormData] = useState({ name: '', email: '', password: '', phone: '', address: '', aadhar: '' });
+             
+             const handleSubmit = (e) => {
+               e.preventDefault();
+               if (authMode === 'login') handleLogin(formData.email, formData.password);
+               else handleSignup({ ...formData, role }, file, setUploadProgress);
+             };
 
-            const handleSubmit = (e) => {
-              e.preventDefault();
-              if (authMode === 'login') handleLogin(formData.email, formData.password);
-              else handleSignup({ ...formData, role }, file, setUploadProgress);
-            };
-
-            return (
-              <div className="min-h-screen pt-28 pb-10 flex justify-center px-4">
-                <BubbleCard className="w-full max-w-4xl p-0 flex flex-col lg:flex-row overflow-hidden min-h-[600px]">
-                    <div className="lg:w-1/2 bg-green-600 p-12 text-white flex flex-col justify-between relative overflow-hidden">
-                        <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-                        <div className="absolute bottom-0 left-0 w-64 h-64 bg-lime-400 opacity-20 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2"></div>
-                        <div className="relative z-10">
-                            <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center mb-6">
-                                <Leaf className="text-white"/>
-                            </div>
-                            <h2 className="text-4xl font-black mb-4">Welcome Back!</h2>
-                            <p className="text-green-100 text-lg opacity-90">Join the freshest community on the internet. Good food starts here.</p>
+             return (
+               <div className="min-h-screen pt-20 flex bg-[#FDFCF8]">
+                 <div className="hidden lg:flex w-1/2 bg-stone-900 relative items-center justify-center overflow-hidden">
+                    <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1500937386664-56d1dfef3854?q=80&w=1740&auto=format&fit=crop')] bg-cover bg-center opacity-60 mix-blend-overlay"></div>
+                    <div className="absolute inset-0 bg-gradient-to-t from-stone-900 via-stone-900/60 to-transparent"></div>
+                    <div className="relative z-10 p-20 text-white max-w-2xl">
+                        <div className="inline-flex items-center gap-2 bg-green-500/20 backdrop-blur-md px-4 py-2 rounded-full border border-green-500/30 mb-8">
+                            <Sprout className="w-5 h-5 text-green-400" />
+                            <span className="font-bold tracking-wide text-sm text-green-100">Direct From Soil</span>
                         </div>
-                        <div className="relative z-10 text-sm font-medium opacity-70">© 2024 Farm2Home Inc.</div>
+                        <h1 className="text-6xl font-bold mb-6 leading-tight tracking-tight">The Future of <span className="text-green-400">Food</span> is Local.</h1>
+                        <p className="text-xl text-stone-300 leading-relaxed max-w-lg">Join a thriving ecosystem where farmers get fair value and families get the purest nutrition. No middlemen, just community.</p>
                     </div>
-                    
-                    <div className="lg:w-1/2 p-8 lg:p-12 bg-white flex flex-col justify-center">
-                        <div className="text-center mb-8">
-                            <h2 className="text-2xl font-black text-gray-800">{authMode === 'login' ? 'Sign In' : 'Create Account'}</h2>
-                        </div>
-                        {authMode === 'signup' && (
-                           <div className="flex bg-gray-100 p-1.5 rounded-full mb-6 relative">
+                 </div>
+                 
+                 <div className="w-full lg:w-1/2 flex items-center justify-center p-8 lg:p-16 overflow-y-auto">
+                   <div className="w-full max-w-md animate-in slide-in-from-right-10 duration-500">
+                       <div className="mb-10 text-center lg:text-left">
+                           <h2 className="text-4xl font-bold text-stone-900 mb-3">{authMode === 'login' ? 'Welcome Back' : 'Create Account'}</h2>
+                           <p className="text-stone-500">Access the freshest marketplace today.</p>
+                       </div>
+
+                       <form onSubmit={handleSubmit} className="space-y-5">
+                         {authMode === 'signup' && (
+                           <div className="grid grid-cols-2 gap-2 p-1.5 bg-stone-100 rounded-2xl mb-6">
                                {['buyer', 'farmer'].map((r) => (
-                                   <button key={r} onClick={() => setRole(r)} className={`flex-1 py-2 rounded-full text-sm font-bold capitalize transition-all relative z-10 ${role === r ? 'bg-white text-green-600 shadow-md' : 'text-gray-400'}`}>{r}</button>
+                                   <button type="button" key={r} onClick={() => setRole(r)} className={`py-3 text-sm font-bold rounded-xl capitalize transition-all ${role === r ? 'bg-white text-green-700 shadow-sm' : 'text-stone-500 hover:text-stone-700'}`}>
+                                       {r}
+                                   </button>
                                ))}
                            </div>
-                        )}
-                        <form onSubmit={handleSubmit} className="space-y-4">
-                            {authMode === 'signup' && (
-                                <><BubbleInput placeholder="Full Name" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required />
-                                <div className="relative">
-                                    <span className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-400 font-bold border-r pr-3">+91</span>
-                                    <BubbleInput className="pl-20" placeholder="Phone Number" value={formData.phone} maxLength={10} onChange={e => setFormData({...formData, phone: e.target.value.replace(/\D/g, '')})} required />
-                                </div>
-                                {role === 'farmer' && <BubbleInput placeholder="Farm Address" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} required />}</>
-                            )}
-                            <BubbleInput type="email" placeholder="Email Address" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} required />
-                            <BubbleInput type="password" placeholder="Password" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} required />
-                            
-                            {authMode === 'signup' && role === 'farmer' && (
-                                <div className="bg-gray-50 p-6 rounded-[2rem] border border-gray-100 space-y-3">
-                                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2"><ShieldCheck size={14}/> Verification</p>
-                                    <BubbleInput placeholder="Aadhar / Govt ID" value={formData.aadhar} onChange={e => setFormData({...formData, aadhar: e.target.value})} required />
-                                    <div className="border-2 border-dashed border-gray-200 rounded-3xl p-6 text-center cursor-pointer hover:bg-white transition-colors relative">
-                                        <div className="text-sm font-bold text-gray-400">{file ? file.name : "Upload Document"}</div>
-                                        <input type="file" required className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e) => setFile(e.target.files[0])} />
-                                    </div>
-                                </div>
-                            )}
+                         )}
+                         
+                         {authMode === 'signup' && (
+                             <div className="space-y-4">
+                                 <input required placeholder="Full Name" className="input-better" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                                 <div className="relative">
+                                     {/* Fixed +91 Prefix Logic */}
+                                     <div className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-stone-400 border-r border-stone-200 pr-3 text-sm select-none pointer-events-none">+91</div>
+                                     <input 
+                                        required 
+                                        placeholder="Mobile Number" 
+                                        className="input-better pl-16" 
+                                        value={formData.phone} 
+                                        maxLength={10} 
+                                        onChange={e => {
+                                            // Strict number only, max 10
+                                            const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                                            setFormData({...formData, phone: val});
+                                        }} 
+                                     />
+                                 </div>
+                                 {role === 'farmer' && (
+                                     <input required placeholder="Farm Location / Address" className="input-better" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} />
+                                 )}
+                             </div>
+                         )}
 
-                            <BubbleButton type="submit" className="w-full" disabled={loading}>
-                                {loading ? <Loader2 className="animate-spin"/> : (authMode === 'login' ? 'Sign In' : 'Create Account')}
-                            </BubbleButton>
-                        </form>
-                        <div className="mt-6 text-center">
-                            <button onClick={() => { setAuthMode(authMode === 'login' ? 'signup' : 'login'); setFile(null); }} className="text-sm font-bold text-gray-400 hover:text-green-600 transition-colors">
-                                {authMode === 'login' ? "New here? Create Account" : "Have an account? Sign In"}
-                            </button>
-                        </div>
-                    </div>
-                </BubbleCard>
-              </div>
-            );
+                         <div className="space-y-4">
+                             <input required type="email" placeholder="Email Address" className="input-better" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
+                             <input required type="password" placeholder="Password" className="input-better" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
+                         </div>
+
+                         {authMode === 'signup' && role === 'farmer' && (
+                             <div className="bg-green-50/50 p-6 rounded-3xl border border-green-100 space-y-4 mt-2">
+                                 <div className="flex items-center gap-2 text-green-800 font-bold text-sm uppercase tracking-wide">
+                                     <ShieldCheck className="w-4 h-4" /> Identity Verification
+                                 </div>
+                                 <input required placeholder="Aadhar Number" className="input-better bg-white" value={formData.aadhar} onChange={e => setFormData({...formData, aadhar: e.target.value})} />
+                                 <div className="border-2 border-dashed border-green-200 p-6 text-center rounded-2xl cursor-pointer relative hover:bg-green-50 transition-colors group">
+                                     <Upload className="w-8 h-8 text-green-400 mx-auto mb-2 group-hover:scale-110 transition-transform"/>
+                                     <span className="text-sm font-bold text-stone-600 block">{file ? file.name : "Upload Government ID"}</span>
+                                     <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={e => setFile(e.target.files[0])} />
+                                 </div>
+                             </div>
+                         )}
+
+                         <button disabled={loading} className="w-full py-4 bg-[#2E7D32] text-white font-bold rounded-2xl hover:bg-[#1B5E20] transition-all shadow-xl shadow-green-900/10 flex justify-center items-center gap-2 mt-6 active:scale-95">
+                             {loading ? <Loader2 className="animate-spin w-5 h-5"/> : (authMode === 'login' ? 'Sign In' : 'Create Account')}
+                         </button>
+                       </form>
+
+                       <button onClick={() => setAuthMode(authMode === 'login' ? 'signup' : 'login')} className="block w-full text-center mt-8 text-stone-500 font-medium hover:text-green-700 transition-colors">
+                           {authMode === 'login' ? "New to Farm2Home? Create an Account" : "Already a member? Sign In"}
+                       </button>
+                   </div>
+                 </div>
+               </div>
+             );
           };
 
-          // ... (Continuing with Bubble UI transformations for Dashboard/Marketplace)
+          const CheckoutModal = ({ cart, onClose, onConfirm }) => {
+             const [uploading, setUploading] = useState(false);
+             const [error, setError] = useState(""); 
+             const [screenshot, setScreenshot] = useState(null);
+             const [adminPaymentSettings, setAdminPaymentSettings] = useState(null);
+             const [delivery, setDelivery] = useState({ 
+                 name: currentUser?.name || '', email: currentUser?.email || '', 
+                 phone: currentUser?.phone || '', address: currentUser?.address || '', 
+                 state: '', zip: ''
+             });
+
+             useEffect(() => {
+                getDoc(getDocRef("settings", "payment")).then(snap => {
+                    if (snap.exists()) setAdminPaymentSettings(snap.data());
+                });
+             }, []);
+
+             const subtotal = cart.reduce((sum, i) => sum + (i.price * i.quantity), 0);
+             const grandTotal = subtotal + 60; // + delivery
+
+             const handleConfirm = async () => {
+                 if (!screenshot) return setError("Please upload payment screenshot.");
+                 setUploading(true);
+                 try {
+                     const ssUrl = await uploadToCloudinary(screenshot);
+                     const groups = {};
+                     cart.forEach(item => {
+                         if (!groups[item.farmerId]) groups[item.farmerId] = [];
+                         groups[item.farmerId].push(item);
+                     });
+
+                     for (const farmerId of Object.keys(groups)) {
+                         const items = groups[farmerId];
+                         const portionTotal = items.reduce((s, i) => s + (i.price * i.quantity), 0);
+                         await addDoc(getCollection("orders"), {
+                             farmerId,
+                             customerId: currentUser.uid,
+                             delivery,
+                             items,
+                             subtotal: portionTotal,
+                             total: portionTotal, 
+                             screenshotUrl: ssUrl, 
+                             status: 'Payment Review', 
+                             createdAt: serverTimestamp()
+                         });
+                     }
+                     showNotification("Order placed! Awaiting Admin Payment Verification.", "success");
+                     onConfirm(); onClose();
+                 } catch (e) { setError(e.message); } 
+                 finally { setUploading(false); }
+             };
+
+             return (
+                 <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+                     <div className="bg-white rounded-[2.5rem] p-8 max-w-4xl w-full flex flex-col md:flex-row gap-8 shadow-2xl relative border border-stone-100">
+                         <button onClick={onClose} className="absolute top-6 right-6 p-2 bg-stone-100 rounded-full hover:bg-stone-200 transition-colors z-10"><X className="w-5 h-5 text-stone-500"/></button>
+                         
+                         <div className="flex-1 space-y-5">
+                            <h2 className="text-3xl font-bold text-stone-900">Checkout</h2>
+                            {error && <p className="text-red-600 bg-red-50 p-3 rounded-xl text-sm font-bold flex items-center gap-2"><AlertCircle className="w-4 h-4"/> {error}</p>}
+                            <input className="input-better" placeholder="Full Name" value={delivery.name} onChange={e => setDelivery({...delivery, name: e.target.value})} />
+                            
+                            <div className="relative">
+                                <div className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-stone-400 border-r border-stone-200 pr-3 text-sm select-none pointer-events-none">+91</div>
+                                <input className="input-better pl-16" placeholder="Mobile Number" value={delivery.phone} maxLength={10} onChange={e => setDelivery({...delivery, phone: e.target.value.replace(/\D/g, '').slice(0,10)})} />
+                            </div>
+
+                            <input className="input-better" placeholder="Street Address" value={delivery.address} onChange={e => setDelivery({...delivery, address: e.target.value})} />
+                            <div className="flex gap-4">
+                                <input className="input-better" placeholder="State" value={delivery.state} onChange={e => setDelivery({...delivery, state: e.target.value})} />
+                                <input className="input-better" placeholder="Zip Code" value={delivery.zip} onChange={e => setDelivery({...delivery, zip: e.target.value})} />
+                            </div>
+                         </div>
+                         <div className="w-full md:w-96 bg-[#FDFCF8] p-8 rounded-[2rem] border border-stone-100 flex flex-col">
+                             <h3 className="font-bold text-xl mb-6 text-stone-900">Payment Summary</h3>
+                             <div className="flex justify-between mb-2 text-stone-500"><span>Subtotal</span><span>₹{subtotal}</span></div>
+                             <div className="flex justify-between mb-4 text-stone-500"><span>Delivery</span><span>₹60</span></div>
+                             <div className="h-px bg-stone-200 mb-4"></div>
+                             <div className="flex justify-between mb-8 text-2xl font-black text-green-800"><span>Total</span><span>₹{grandTotal}</span></div>
+                             
+                             {adminPaymentSettings?.qrCodeUrl ? (
+                                 <div className="text-center mb-6 bg-white p-4 rounded-xl shadow-sm border border-stone-100">
+                                     <img src={adminPaymentSettings.qrCodeUrl} className="w-40 h-40 object-contain mx-auto rounded-lg" />
+                                     {adminPaymentSettings.upiId && <p className="text-xs font-mono mt-3 bg-stone-100 inline-block px-3 py-1.5 rounded-lg text-stone-600">{adminPaymentSettings.upiId}</p>}
+                                 </div>
+                             ) : <p className="text-sm text-stone-400 text-center py-8 bg-stone-100 rounded-xl mb-6">No QR Configured by Admin</p>}
+                             
+                             <div className="mb-4">
+                                 <label className="block text-xs font-bold text-stone-500 uppercase mb-2 ml-1">Upload Payment Screenshot</label>
+                                 <input type="file" onChange={e => setScreenshot(e.target.files[0])} className="block w-full text-sm text-stone-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-green-100 file:text-green-700 hover:file:bg-green-200 transition-colors cursor-pointer border border-stone-200 rounded-xl bg-white" />
+                             </div>
+                             
+                             <button onClick={handleConfirm} disabled={uploading} className="w-full mt-auto py-4 bg-[#2E7D32] text-white font-bold rounded-2xl hover:bg-[#1B5E20] disabled:opacity-50 shadow-xl shadow-green-900/10 transition-all active:scale-95">
+                                 {uploading ? <div className="flex items-center justify-center gap-2"><Loader2 className="animate-spin w-5 h-5"/> Processing...</div> : "Confirm Payment"}
+                             </button>
+                         </div>
+                     </div>
+                 </div>
+             );
+          };
 
           const FarmerDashboard = () => {
             const [tab, setTab] = useState('inventory'); 
+            const [myOrders, setMyOrders] = useState([]);
             const [newProd, setNewProd] = useState({ name: '', price: '', stock: '', unit: 'kg', pesticides: false, description: '', farmAddress: '', state: '' });
             const [prodFile, setProdFile] = useState(null);
             const [uploadingProd, setUploadingProd] = useState(false);
-            const [myOrders, setMyOrders] = useState([]);
             const [editingId, setEditingId] = useState(null);
             const [deleteConfirmId, setDeleteConfirmId] = useState(null);
-            const [upiId, setUpiId] = useState(currentUser?.upiId || "");
 
-            // ... (keep logic same as original) ...
             useEffect(() => {
               if (tab === 'orders') {
-                const q = query(collection(db, "orders"), orderBy("createdAt", "desc"));
+                const q = query(getCollection("orders"), where("farmerId", "==", currentUser.uid), orderBy("createdAt", "desc"));
                 const unsubscribe = onSnapshot(q, (snapshot) => {
-                  const allOrders = snapshot.docs.map(d => ({id: d.id, ...d.data()}));
-                  setMyOrders(allOrders.filter(o => o.items.some(i => i.farmerId === currentUser.uid)));
+                  setMyOrders(snapshot.docs.map(d => ({id: d.id, ...d.data()})));
+                }, (error) => {
+                    console.error("Error fetching farmer orders:", error);
+                    // Silent fail or minimal notification
                 });
                 return () => unsubscribe();
               }
             }, [tab, currentUser.uid]);
 
             const handleSaveProduct = async (e) => {
-              e.preventDefault();
-              setUploadingProd(true);
-              try {
-                  let imageUrl = newProd.imageUrl || ""; 
-                  if (prodFile) imageUrl = await uploadToCloudinary(prodFile);
-                  const productData = { ...newProd, imageUrl, farmerId: currentUser.uid, farmerName: currentUser.name, status: 'pending', updatedAt: serverTimestamp() };
-                  if (editingId) { await updateDoc(doc(db, "products", editingId), productData); showNotification("Updated!", "success"); } 
-                  else { await addDoc(collection(db, "products"), { ...productData, createdAt: serverTimestamp() }); showNotification("Submitted!", "success"); }
-                  setNewProd({ name: '', price: '', stock: '', unit: 'kg', pesticides: false, description: '', farmAddress: '', state: '' });
-                  setProdFile(null); setEditingId(null);
-              } catch (error) { showNotification("Failed", "error"); } finally { setUploadingProd(false); }
+                e.preventDefault();
+                setUploadingProd(true);
+                try {
+                    let imageUrl = newProd.imageUrl || ""; 
+                    if (prodFile) imageUrl = await uploadToCloudinary(prodFile);
+                    const productData = { ...newProd, imageUrl, farmerId: currentUser.uid, farmerName: currentUser.name, status: 'pending', updatedAt: serverTimestamp() };
+                    if (editingId) await updateDoc(getDocRef("products", editingId), productData);
+                    else await addDoc(getCollection("products"), { ...productData, createdAt: serverTimestamp() });
+                    showNotification("Product sent for approval!", "success");
+                    setNewProd({ name: '', price: '', stock: '', unit: 'kg', pesticides: false, description: '', farmAddress: '', state: '' });
+                    setProdFile(null); setEditingId(null);
+                } catch (error) { console.error(error); } finally { setUploadingProd(false); }
             };
 
             const handleDeleteProduct = async () => {
                 if (deleteConfirmId) {
-                    try { await deleteDoc(doc(db, "products", deleteConfirmId)); showNotification("Deleted.", "success"); } catch (error) { showNotification("Error", "error"); }
+                    try {
+                        await deleteDoc(getDocRef("products", deleteConfirmId));
+                        showNotification("Product deleted.", "success");
+                    } catch (error) {
+                        showNotification("Error deleting product", "error");
+                    }
                     setDeleteConfirmId(null);
                 }
             };
 
-            const handleSavePayment = async () => {
-                const fileInput = document.getElementById('qr-upload');
-                await savePaymentSettings(fileInput?.files[0], upiId);
+            const handleEditClick = (product) => {
+                setNewProd(product);
+                setEditingId(product.id);
+                setProdFile(null); 
+                window.scrollTo({ top: 0, behavior: 'smooth' }); 
             };
 
             const isRestricted = currentUser.status === 'pending' || currentUser.status === 'rejected';
+            const myProducts = products.filter(p => p.farmerId === currentUser.uid);
 
             return (
-              <div className="min-h-screen pt-28 pb-12 px-4 max-w-7xl mx-auto">
-                <ConfirmationModal isOpen={!!deleteConfirmId} title="Delete?" message="This cannot be undone." isDangerous onConfirm={handleDeleteProduct} onCancel={() => setDeleteConfirmId(null)} />
-                
+              <div className="min-h-screen pt-28 pb-12 px-4 bg-stone-50">
+                <ConfirmationModal 
+                    isOpen={!!deleteConfirmId} 
+                    title="Delete Product?" 
+                    message="Are you sure you want to delete this item? This action cannot be undone." 
+                    confirmText="Delete"
+                    isDangerous={true}
+                    onConfirm={handleDeleteProduct} 
+                    onCancel={() => setDeleteConfirmId(null)} 
+                />
+
                 {isRestricted && (
-                    <div className="bg-orange-100 border-l-4 border-orange-500 text-orange-700 p-4 rounded-r-xl mb-8 shadow-sm flex items-center gap-3">
-                        <AlertTriangle/> {currentUser.status === 'pending' ? 'Application Under Review.' : `Application Rejected: ${currentUser.rejectionReason}`}
+                    <div className={`fixed top-24 left-1/2 -translate-x-1/2 z-40 px-6 py-3 rounded-full font-bold shadow-xl flex items-center gap-2 ${currentUser.status === 'rejected' ? 'bg-red-500 text-white' : 'bg-amber-400 text-amber-900'}`}>
+                       {currentUser.status === 'pending' ? <><Loader2 className="animate-spin w-4 h-4"/> Account Under Review. Selling Restricted.</> : <><XCircle className="w-4 h-4"/> Account Rejected: {currentUser.rejectionReason}</>}
                     </div>
                 )}
 
-                <div className={`flex flex-col md:flex-row justify-between items-end mb-10 gap-4 ${isRestricted ? 'opacity-50 pointer-events-none' : ''}`}>
-                   <div><h1 className="text-4xl font-black text-gray-800">Farmer Panel</h1><p className="text-gray-500 font-medium">Manage your harvest & earnings</p></div>
-                   <div className="bg-white p-1.5 rounded-full shadow-lg border border-gray-100 flex">
-                      {['inventory', 'orders', 'settings'].map(t => (
-                          <button key={t} onClick={() => setTab(t)} className={`px-6 py-2.5 rounded-full font-bold text-sm transition-all ${tab === t ? 'bg-green-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-100'}`}>{t.charAt(0).toUpperCase() + t.slice(1)}</button>
-                      ))}
-                   </div>
-                </div>
+                <div className={`max-w-6xl mx-auto ${isRestricted ? 'opacity-50 pointer-events-none mt-12' : ''}`}>
+                  <header className="mb-10 flex flex-col md:flex-row justify-between items-end gap-6">
+                    <div>
+                        <h1 className="text-4xl font-black text-stone-900 tracking-tight">Farmer Dashboard</h1>
+                        <p className="text-stone-500 mt-2 text-lg">Manage your harvest and orders</p>
+                    </div>
+                    <div className="flex bg-white p-1.5 rounded-2xl shadow-sm border border-stone-100">
+                      <button onClick={() => setTab('inventory')} className={`px-6 py-2.5 rounded-xl font-bold text-sm transition-all ${tab === 'inventory' ? 'bg-stone-900 text-white shadow-lg' : 'text-stone-500 hover:text-stone-800'}`}>Inventory</button>
+                      <button onClick={() => setTab('orders')} className={`px-6 py-2.5 rounded-xl font-bold text-sm transition-all ${tab === 'orders' ? 'bg-stone-900 text-white shadow-lg' : 'text-stone-500 hover:text-stone-800'}`}>Orders</button>
+                    </div>
+                  </header>
 
-                <div className={isRestricted ? 'opacity-50 pointer-events-none' : ''}>
-                    {tab === 'inventory' && (
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                            <BubbleCard className="lg:col-span-1 h-fit border-2 border-green-50">
-                                <h3 className="text-xl font-bold mb-6 flex items-center gap-2">{editingId ? '✏️ Edit Product' : '➕ Add Harvest'}</h3>
-                                <form className="space-y-4" onSubmit={handleSaveProduct}>
-                                    <BubbleInput placeholder="Product Name" value={newProd.name} onChange={e => setNewProd({...newProd, name: e.target.value})} required />
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <BubbleInput type="number" placeholder="Price (₹)" value={newProd.price} onChange={e => setNewProd({...newProd, price: Number(e.target.value)})} required />
-                                        <select className="w-full px-6 py-4 rounded-full bg-white border-2 border-green-50 outline-none text-gray-700 appearance-none" value={newProd.unit} onChange={e => setNewProd({...newProd, unit: e.target.value})}>
-                                            <option value="kg">/ kg</option><option value="bunch">/ bunch</option><option value="piece">/ piece</option>
-                                        </select>
-                                    </div>
-                                    <BubbleInput type="number" placeholder="Stock Quantity" value={newProd.stock} onChange={e => setNewProd({...newProd, stock: Number(e.target.value)})} required />
-                                    <textarea className="w-full px-6 py-4 rounded-[2rem] bg-white border-2 border-green-50 focus:border-green-400 outline-none transition-all shadow-sm text-gray-700 placeholder-gray-400 h-24 resize-none" placeholder="Describe freshness..." value={newProd.description} onChange={e => setNewProd({...newProd, description: e.target.value})} />
-                                    <div className="border-2 border-dashed border-gray-200 rounded-[2rem] p-4 text-center hover:bg-green-50 transition-colors relative cursor-pointer">
-                                        <div className="text-xs font-bold text-gray-500">{prodFile ? prodFile.name : (newProd.imageUrl ? "Change Image" : "📸 Upload Photo")}</div>
-                                        <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e) => setProdFile(e.target.files[0])} />
-                                    </div>
-                                    <div className="flex items-center gap-2 px-4"><input type="checkbox" checked={newProd.pesticides} onChange={e => setNewProd({...newProd, pesticides: e.target.checked})} className="w-5 h-5 rounded-md text-green-600 accent-green-600" /> <span className="text-sm font-bold text-gray-600">Pesticides used?</span></div>
-                                    <div className="flex gap-2">
-                                        {editingId && <BubbleButton variant="secondary" className="flex-1" onClick={() => { setEditingId(null); setNewProd({ name: '', price: '', stock: '', unit: 'kg', pesticides: false, description: '', farmAddress: '', state: '' }); }}>Cancel</BubbleButton>}
-                                        <BubbleButton type="submit" className="flex-1" disabled={uploadingProd}>{uploadingProd ? 'Saving...' : 'Save'}</BubbleButton>
-                                    </div>
-                                </form>
-                            </BubbleCard>
-                            <div className="lg:col-span-2 space-y-4">
-                                {products.filter(p => p.farmerId === currentUser.uid).map(p => (
-                                    <div key={p.id} className="bg-white p-4 rounded-[2.5rem] shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all border border-transparent hover:border-green-100 flex items-center gap-6">
-                                        <img src={p.imageUrl || "https://via.placeholder.com/150"} className="w-24 h-24 rounded-[2rem] object-cover bg-gray-100 shadow-inner" />
-                                        <div className="flex-1 py-2">
-                                            <div className="flex justify-between items-start">
-                                                <h4 className="font-bold text-xl text-gray-800">{p.name}</h4>
-                                                <span className={`text-[10px] font-black uppercase px-3 py-1 rounded-full ${p.status === 'approved' ? 'bg-green-100 text-green-700' : p.status === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>{p.status}</span>
-                                            </div>
-                                            <p className="text-sm text-gray-400 mb-2">₹{p.price}/{p.unit} • {p.stock} left</p>
-                                            <div className="flex gap-2">
-                                                <button onClick={() => { setNewProd(p); setEditingId(p.id); setProdFile(null); window.scrollTo({top:0, behavior:'smooth'}); }} className="p-2 bg-gray-100 rounded-full hover:bg-yellow-100 text-gray-500 hover:text-yellow-600 transition-colors"><Edit2 size={16}/></button>
-                                                <button onClick={() => setDeleteConfirmId(p.id)} className="p-2 bg-gray-100 rounded-full hover:bg-red-100 text-gray-500 hover:text-red-600 transition-colors"><Trash2 size={16}/></button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
+                  {tab === 'inventory' && (
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                      <div className="lg:col-span-1">
+                        <div className="better-box p-8 sticky top-28">
+                          <div className="flex justify-between items-center mb-6">
+                              <h3 className="text-xl font-bold flex items-center gap-2 text-stone-900">
+                                  {editingId ? <><Edit2 className="w-5 h-5 text-amber-500"/> Edit Product</> : <><Upload className="w-5 h-5 text-emerald-600"/> Add Product</>}
+                              </h3>
+                              {editingId && <button onClick={() => {setEditingId(null); setNewProd({ name: '', price: '', stock: '', unit: 'kg', pesticides: false, description: '', farmAddress: '', state: '' });}} className="text-xs font-bold text-stone-400 hover:text-stone-600">Cancel</button>}
+                          </div>
+                          
+                          <form className="space-y-4" onSubmit={handleSaveProduct}>
+                            <input required className="input-better" value={newProd.name} onChange={e => setNewProd({...newProd, name: e.target.value})} placeholder="Product Name" />
+                            <div className="grid grid-cols-2 gap-4">
+                              <input required type="number" className="input-better" value={newProd.price} onChange={e => setNewProd({...newProd, price: Number(e.target.value)})} placeholder="Price (₹)" />
+                              <select className="input-better" value={newProd.unit} onChange={e => setNewProd({...newProd, unit: e.target.value})}>
+                                <option value="kg">Per Kg</option>
+                                <option value="bunch">Per Bunch</option>
+                                <option value="piece">Per Piece</option>
+                              </select>
                             </div>
-                        </div>
-                    )}
-                    {tab === 'orders' && (
-                        <div className="grid gap-6">
-                            {myOrders.map(o => (
-                                <BubbleCard key={o.id} className="flex flex-col md:flex-row justify-between gap-6">
-                                    <div>
-                                        <h4 className="font-black text-gray-800 text-lg mb-1">Order #{o.id.slice(-6)}</h4>
-                                        <p className="text-gray-400 text-sm mb-4">{new Date(o.date).toDateString()}</p>
-                                        <div className="flex flex-col gap-1 text-sm text-gray-600">
-                                            <span className="font-bold flex items-center gap-1"><User size={14}/> {o.delivery?.name}</span>
-                                            <span className="flex items-center gap-1"><MapPin size={14}/> {o.delivery?.address}, {o.delivery?.city}</span>
-                                        </div>
-                                    </div>
-                                    <div className="flex flex-col items-end gap-3">
-                                        <div className="text-right">
-                                            <div className="text-3xl font-black text-green-600">₹{o.total}</div>
-                                            <div className={`text-xs font-bold uppercase px-3 py-1 rounded-full inline-block ${o.status === 'Accepted' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>{o.status}</div>
-                                        </div>
-                                        {o.screenshotUrl && <a href={o.screenshotUrl} target="_blank" className="text-xs font-bold text-blue-500 bg-blue-50 px-3 py-1.5 rounded-full hover:bg-blue-100 transition-colors">View Payment Proof</a>}
-                                    </div>
-                                </BubbleCard>
-                            ))}
-                        </div>
-                    )}
-                    {tab === 'settings' && (
-                        <BubbleCard className="max-w-md mx-auto text-center">
-                            <h3 className="text-xl font-bold mb-6">Payment Details</h3>
-                            <div className="space-y-4 mb-6">
-                                <BubbleInput placeholder="UPI ID (e.g. name@bank)" value={upiId} onChange={e => setUpiId(e.target.value)} />
-                                <div className="border-2 border-dashed border-gray-200 rounded-[2.5rem] p-8 relative group hover:bg-gray-50 transition-colors">
-                                    {currentUser.qrCodeUrl ? <img src={currentUser.qrCodeUrl} className="w-40 h-40 mx-auto object-cover rounded-xl shadow-md"/> : <QrCode className="w-12 h-12 mx-auto text-gray-300"/>}
-                                    <input type="file" id="qr-upload" className="absolute inset-0 opacity-0 cursor-pointer" />
-                                    <p className="mt-4 text-xs font-bold text-gray-400">Click to upload QR Code</p>
+                            <input required type="number" className="input-better" value={newProd.stock} onChange={e => setNewProd({...newProd, stock: Number(e.target.value)})} placeholder="Stock Qty" />
+                            <input required className="input-better" value={newProd.farmAddress} onChange={e => setNewProd({...newProd, farmAddress: e.target.value})} placeholder="Farm Address" />
+                            <input required className="input-better" value={newProd.state} onChange={e => setNewProd({...newProd, state: e.target.value})} placeholder="State" />
+                            <textarea className="input-better h-24 resize-none" value={newProd.description} onChange={e => setNewProd({...newProd, description: e.target.value})} placeholder="Description..." />
+                            
+                            <div className="border-2 border-dashed border-stone-200 rounded-2xl p-6 text-center hover:bg-stone-50 transition-colors relative cursor-pointer group">
+                                <span className="text-sm font-bold text-stone-500 group-hover:text-emerald-700 transition-colors">{prodFile ? prodFile.name : (newProd.imageUrl ? "Change Image" : "Upload Image")}</span>
+                                <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e) => setProdFile(e.target.files[0])} />
+                            </div>
+                            
+                            <div className="flex items-center gap-3 p-4 bg-stone-50 rounded-xl cursor-pointer" onClick={() => setNewProd({...newProd, pesticides: !newProd.pesticides})}>
+                                <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${newProd.pesticides ? 'bg-emerald-600 border-emerald-600' : 'bg-white border-stone-300'}`}>
+                                    {newProd.pesticides && <CheckCircle className="w-3.5 h-3.5 text-white" />}
                                 </div>
+                                <span className="text-sm font-bold text-stone-600">Pesticides Used?</span>
                             </div>
-                            <BubbleButton onClick={handleSavePayment} className="w-full">Save Changes</BubbleButton>
-                        </BubbleCard>
-                    )}
+
+                            <button disabled={uploadingProd} className={`w-full py-4 text-white font-bold rounded-xl shadow-lg transition-all active:scale-95 ${editingId ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-500/30' : 'bg-stone-900 hover:bg-stone-800 shadow-stone-900/30'}`}>
+                                {uploadingProd ? <Loader2 className="animate-spin mx-auto"/> : (editingId ? 'Update Product' : 'Submit for Review')}
+                            </button>
+                          </form>
+                        </div>
+                      </div>
+                      
+                      <div className="lg:col-span-2 space-y-4">
+                        {myProducts.length === 0 && (
+                            <div className="text-center py-20 bg-white rounded-[2rem] border border-dashed border-stone-200">
+                                <Leaf className="w-12 h-12 text-stone-200 mx-auto mb-4"/>
+                                <p className="text-stone-400 font-medium">Your inventory is empty.</p>
+                            </div>
+                        )}
+                        {myProducts.map(p => (
+                          <div key={p.id} className="better-box p-5 flex flex-col md:flex-row items-center gap-6 group">
+                            <img src={p.imageUrl || "https://images.unsplash.com/photo-1595855709915-445676396827?auto=format&fit=crop&q=80"} className="w-full md:w-32 h-32 object-cover rounded-2xl bg-stone-100" />
+                            <div className="flex-1 w-full text-center md:text-left">
+                                <div className="flex flex-col md:flex-row items-center justify-between mb-2">
+                                    <h4 className="text-xl font-bold text-stone-900">{p?.name || 'Unnamed'}</h4>
+                                    <span className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-wide ${
+                                        p.status === 'approved' ? 'bg-emerald-100 text-emerald-700' : 
+                                        p.status === 'rejected' ? 'bg-red-100 text-red-700' : 
+                                        'bg-amber-100 text-amber-700'
+                                    }`}>
+                                        {p.status}
+                                    </span>
+                                </div>
+                                <div className="flex items-center justify-center md:justify-start gap-4 text-sm text-stone-500 mb-3">
+                                    <span className="flex items-center gap-1"><Package className="w-4 h-4"/> {p?.stock || 0} {p?.unit || 'units'}</span>
+                                    <span className="flex items-center gap-1"><DollarSign className="w-4 h-4"/> ₹{p?.price || 0}</span>
+                                </div>
+                                {p.status === 'rejected' && <p className="text-xs text-red-500 bg-red-50 p-2 rounded-lg mb-2">Reason: {p.rejectionReason}</p>}
+                            </div>
+                            <div className="flex gap-2 w-full md:w-auto">
+                                <button onClick={() => handleEditClick(p)} className="flex-1 md:flex-none p-3 bg-stone-50 hover:bg-amber-50 text-stone-600 hover:text-amber-600 rounded-xl transition-colors"><Edit2 className="w-5 h-5"/></button>
+                                <button onClick={() => setDeleteConfirmId(p.id)} className="flex-1 md:flex-none p-3 bg-stone-50 hover:bg-red-50 text-stone-600 hover:text-red-600 rounded-xl transition-colors"><Trash2 className="w-5 h-5"/></button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {tab === 'orders' && (
+                    <div className="space-y-6">
+                      {myOrders.length === 0 && (
+                          <div className="text-center py-20 bg-white rounded-[2rem] border border-dashed border-stone-200">
+                              <Package className="w-12 h-12 text-stone-200 mx-auto mb-4"/>
+                              <p className="text-stone-400 font-medium">No orders yet.</p>
+                          </div>
+                      )}
+                      {myOrders.map(order => (
+                        <div key={order.id} className="better-box p-8 border-l-4 border-l-stone-900 relative">
+                          <div className="flex justify-between items-start mb-6 border-b border-stone-100 pb-4">
+                              <div>
+                                  <h4 className="font-bold text-xl text-stone-900">Order #{order.id.slice(0,6)}</h4>
+                                  <div className="flex flex-wrap items-center gap-2 mt-2">
+                                      <span className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-wide ${order.status === 'Payment Review' ? 'bg-amber-100 text-amber-700' : 'bg-stone-100 text-stone-400'}`}>1. Admin Check</span>
+                                      <ChevronRight className="w-3 h-3 text-stone-300"/>
+                                      <span className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-wide ${['Preparing', 'Out for Delivery', 'Delivered'].includes(order.status) ? 'bg-blue-100 text-blue-700' : 'bg-stone-100 text-stone-400'}`}>2. Preparing</span>
+                                      <ChevronRight className="w-3 h-3 text-stone-300"/>
+                                      <span className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-wide ${['Out for Delivery', 'Delivered'].includes(order.status) ? 'bg-purple-100 text-purple-700' : 'bg-stone-100 text-stone-400'}`}>3. Delivery</span>
+                                      <ChevronRight className="w-3 h-3 text-stone-300"/>
+                                      <span className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-wide ${order.status === 'Delivered' ? 'bg-emerald-100 text-emerald-700' : 'bg-stone-100 text-stone-400'}`}>4. Done</span>
+                                  </div>
+                              </div>
+                              <div className="text-right">
+                                  <span className="block text-xs font-bold text-stone-400 uppercase">You Earn</span>
+                                  <span className="text-2xl font-black text-stone-900">₹{order.total}</span>
+                              </div>
+                          </div>
+                          
+                          <div className="space-y-3 mb-6">
+                              <h5 className="font-bold text-sm text-stone-500 uppercase">Items</h5>
+                              {(order.items || []).map((item, idx) => (
+                                  <div key={idx} className="flex justify-between text-sm p-3 bg-stone-50 rounded-lg">
+                                      <span className="font-bold text-stone-700">{item?.name || 'Unknown'} x{item?.quantity || 0} {item?.unit || ''}</span>
+                                      <span className="font-bold text-stone-900">₹{(item?.price || 0) * (item?.quantity || 0)}</span>
+                                  </div>
+                              ))}
+                          </div>
+                          
+                          <div className="bg-stone-50 p-4 rounded-xl mb-6">
+                              <h5 className="font-bold text-sm text-stone-500 uppercase mb-2">Delivery To</h5>
+                              <p className="font-bold text-stone-900">{order.delivery?.name || 'Unknown Customer'}</p>
+                              <p className="text-sm text-stone-600">{order.delivery?.address || ''}, {order.delivery?.state || ''} - {order.delivery?.zip || ''}</p>
+                              <p className="text-sm text-stone-600 font-mono mt-1">{order.delivery?.phone || ''}</p>
+                          </div>
+
+                          <div className="mt-6 pt-6 border-t border-stone-100">
+                              {order.status === 'Payment Review' && (
+                                  <div className="flex items-center gap-3 text-amber-600 bg-amber-50 p-4 rounded-xl">
+                                      <Loader2 className="animate-spin w-5 h-5"/>
+                                      <span className="font-bold text-sm">Waiting for Admin to verify payment. You cannot process this yet.</span>
+                                  </div>
+                              )}
+
+                              {order.status === 'Payment Verified' && (
+                                  <div className="flex gap-4 animate-in fade-in">
+                                      <button onClick={() => handleFarmerOrderAction(order.id, 'Preparing')} className="flex-1 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 flex items-center justify-center gap-2">
+                                          <Package className="w-4 h-4"/> Confirm & Start Preparing
+                                      </button>
+                                      <button onClick={() => handleFarmerOrderAction(order.id, 'Rejected')} className="px-6 py-3 bg-white border border-red-200 text-red-600 font-bold rounded-xl hover:bg-red-50">Reject</button>
+                                  </div>
+                              )}
+
+                              {order.status === 'Preparing' && (
+                                  <button onClick={() => handleFarmerOrderAction(order.id, 'Out for Delivery')} className="w-full py-4 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-700 shadow-lg shadow-purple-200 flex items-center justify-center gap-2 animate-in fade-in">
+                                      <Bike className="w-5 h-5"/> Mark Out for Delivery
+                                  </button>
+                              )}
+
+                              {order.status === 'Out for Delivery' && (
+                                  <button onClick={() => handleFarmerOrderAction(order.id, 'Delivered')} className="w-full py-4 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 shadow-lg shadow-emerald-200 flex items-center justify-center gap-2 animate-in fade-in">
+                                      <CheckCircle className="w-5 h-5"/> Confirm Delivered
+                                  </button>
+                              )}
+
+                              {order.status === 'Delivered' && (
+                                  <div className="flex items-center justify-center gap-2 text-emerald-700 bg-emerald-50 p-4 rounded-xl font-bold">
+                                      <CheckCircle className="w-5 h-5"/> Order Completed
+                                  </div>
+                              )}
+                              
+                              {order.status === 'Rejected' && (
+                                  <div className="flex items-center justify-center gap-2 text-red-700 bg-red-50 p-4 rounded-xl font-bold">
+                                      <XCircle className="w-5 h-5"/> Order Rejected
+                                  </div>
+                              )}
+                          </div>
+                          
+                          <p className="text-center text-xs text-stone-400 mt-6 italic bg-stone-50 py-2 rounded-lg">
+                              Note: You will receive payment after delivery confirmation.
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             );
           };
 
           const ModDashboard = () => {
-             // ... Logic same as original ...
-             const [pendingUsers, setPendingUsers] = useState([]);
-             const [pendingProducts, setPendingProducts] = useState([]); 
-             useEffect(() => {
-                const u1 = onSnapshot(query(collection(db, "users"), where("status", "==", "pending")), s => setPendingUsers(s.docs.map(d => ({id: d.id, ...d.data()}))));
-                const u2 = onSnapshot(query(collection(db, "products"), where("status", "==", "pending")), s => setPendingProducts(s.docs.map(d => ({id: d.id, ...d.data()}))));
-                return () => { u1(); u2(); }
-             }, []);
+            const [activeTab, setActiveTab] = useState('users'); 
+            const [pendingUsers, setPendingUsers] = useState([]);
+            const [pendingProducts, setPendingProducts] = useState([]); 
+            const [reviewOrders, setReviewOrders] = useState([]); 
+            const [paymentSettings, setPaymentSettings] = useState({ qrCodeUrl: "", upiId: "" });
+            const [qrFile, setQrFile] = useState(null);
+            const [rejectReason, setRejectReason] = useState("");
+            const [productRejectReason, setProductRejectReason] = useState("");
+            const [selectedUser, setSelectedUser] = useState(null);
+            const [selectedProduct, setSelectedProduct] = useState(null);
+            const [savingSettings, setSavingSettings] = useState(false);
+            
+            useEffect(() => {
+                const unsubUsers = onSnapshot(query(getCollection("users"), where("status", "==", "pending")), snap => 
+                    setPendingUsers(snap.docs.map(d => ({id: d.id, ...d.data()})))
+                , err => console.error("Users fetch error:", err));
+                
+                const unsubProducts = onSnapshot(query(getCollection("products"), where("status", "==", "pending")), snap => 
+                    setPendingProducts(snap.docs.map(d => ({id: d.id, ...d.data()})))
+                , err => console.error("Products fetch error:", err));
 
-             return (
-                 <div className="min-h-screen pt-28 pb-12 px-4 max-w-6xl mx-auto space-y-12">
-                     <section>
-                         <h2 className="text-3xl font-black text-gray-800 mb-6 pl-4 border-l-8 border-green-500">Farmer Approvals</h2>
-                         <div className="grid gap-4">
-                             {pendingUsers.map(u => (
-                                 <BubbleCard key={u.id} className="flex flex-col md:flex-row justify-between items-center gap-6">
-                                     <div>
-                                         <h4 className="font-bold text-xl">{u.name}</h4>
-                                         <p className="text-gray-500">{u.email} • {u.phone}</p>
-                                         {u.docUrl && <a href={u.docUrl} target="_blank" className="text-blue-500 text-sm font-bold underline mt-2 block">View Documents</a>}
-                                     </div>
-                                     <div className="flex gap-2">
-                                         <BubbleButton variant="danger" className="!px-4 !py-2" onClick={() => handleModAction(u.id, 'reject', 'Identity mismatch')}>Reject</BubbleButton>
-                                         <BubbleButton variant="primary" className="!px-4 !py-2" onClick={() => handleModAction(u.id, 'approve')}>Approve</BubbleButton>
-                                     </div>
-                                 </BubbleCard>
-                             ))}
-                             {pendingUsers.length === 0 && <div className="text-center text-gray-400 py-8 bg-white/50 rounded-[2rem] border-2 border-dashed border-gray-200">All clear!</div>}
-                         </div>
-                     </section>
-                     <section>
-                        <h2 className="text-3xl font-black text-gray-800 mb-6 pl-4 border-l-8 border-orange-500">Product Approvals</h2>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {pendingProducts.map(p => (
-                                <BubbleCard key={p.id} className="p-6">
-                                    <div className="flex items-start gap-4 mb-4">
-                                        <img src={p.imageUrl || "https://via.placeholder.com/100"} className="w-16 h-16 rounded-2xl object-cover bg-gray-100"/>
+                const unsubOrders = onSnapshot(query(getCollection("orders"), where("status", "==", "Payment Review")), snap => 
+                    setReviewOrders(snap.docs.map(d => ({id: d.id, ...d.data()})))
+                , (error) => {
+                    console.error("Mod orders fetch error:", error);
+                });
+
+                getDoc(getDocRef("settings", "payment")).then(snap => {
+                    if (snap.exists()) setPaymentSettings(snap.data());
+                });
+
+                return () => { unsubUsers(); unsubProducts(); unsubOrders(); };
+            }, []);
+
+            const handleSaveSettings = async (e) => {
+                e.preventDefault();
+                setSavingSettings(true);
+                try {
+                    let url = paymentSettings.qrCodeUrl;
+                    if (qrFile) url = await uploadToCloudinary(qrFile);
+                    await setDoc(getDocRef("settings", "payment"), { ...paymentSettings, qrCodeUrl: url });
+                    showNotification("Payment settings saved", "success");
+                } catch (e) {
+                    showNotification("Failed to save settings", "error");
+                } finally {
+                    setSavingSettings(false);
+                }
+            };
+
+            return (
+              <div className="min-h-screen pt-28 pb-12 px-4 bg-stone-50">
+                <div className="max-w-5xl mx-auto">
+                  <header className="mb-10 flex flex-col md:flex-row justify-between items-end gap-6">
+                    <div>
+                        <h1 className="text-4xl font-black text-stone-900 tracking-tight">Admin Dashboard</h1>
+                        <p className="text-stone-500 mt-2 text-lg">Platform Moderation & Settings</p>
+                    </div>
+                    <div className="flex bg-white p-1.5 rounded-2xl shadow-sm border border-stone-100">
+                      <button onClick={() => setActiveTab('users')} className={`px-5 py-2 rounded-xl font-bold text-xs ${activeTab === 'users' ? 'bg-stone-900 text-white' : 'text-stone-500'}`}>Users ({pendingUsers.length})</button>
+                      <button onClick={() => setActiveTab('products')} className={`px-5 py-2 rounded-xl font-bold text-xs ${activeTab === 'products' ? 'bg-stone-900 text-white' : 'text-stone-500'}`}>Products ({pendingProducts.length})</button>
+                      <button onClick={() => setActiveTab('orders')} className={`px-5 py-2 rounded-xl font-bold text-xs ${activeTab === 'orders' ? 'bg-stone-900 text-white' : 'text-stone-500'}`}>Orders ({reviewOrders.length})</button>
+                      <button onClick={() => setActiveTab('settings')} className={`px-5 py-2 rounded-xl font-bold text-xs ${activeTab === 'settings' ? 'bg-stone-900 text-white' : 'text-stone-500'}`}>Settings</button>
+                    </div>
+                  </header>
+
+                  {/* USERS TAB */}
+                  {activeTab === 'users' && (
+                      <div className="space-y-4">
+                          {pendingUsers.map(user => (
+                              <div key={user.id} className="better-box p-6 flex justify-between items-center">
+                                  <div>
+                                      <h3 className="font-bold">{user.name} <span className="text-xs bg-stone-100 px-2 py-0.5 rounded">{user.role}</span></h3>
+                                      <p className="text-sm text-stone-500">{user.email} | {user.phone}</p>
+                                      {user.docUrl && <a href={user.docUrl} target="_blank" className="text-blue-600 text-xs font-bold underline">View ID</a>}
+                                  </div>
+                                  <div className="flex flex-col justify-center gap-3 md:w-48">
+                                    {selectedUser === user.id ? (
+                                      <div className="bg-red-50 p-3 rounded-xl animate-in fade-in">
+                                          <textarea className="w-full text-sm p-2 border border-red-200 rounded-lg mb-2 focus:outline-none" placeholder="Reason..." value={rejectReason} onChange={e => setRejectReason(e.target.value)} />
+                                          <button onClick={() => { handleModAction(user.id, 'reject', rejectReason); setSelectedUser(null); }} className="w-full bg-red-500 text-white py-2 rounded-lg text-sm font-bold hover:bg-red-600">Confirm Reject</button>
+                                      </div>
+                                    ) : (
+                                      <div className="flex gap-2">
+                                          <button onClick={() => handleModAction(user.id, 'approve')} className="px-4 py-2 bg-emerald-100 text-emerald-700 font-bold rounded-lg hover:bg-emerald-200">Approve</button>
+                                          <button onClick={() => setSelectedUser(user.id)} className="px-4 py-2 bg-red-100 text-red-700 font-bold rounded-lg hover:bg-red-200">Reject</button>
+                                      </div>
+                                    )}
+                                  </div>
+                              </div>
+                          ))}
+                          {pendingUsers.length === 0 && <p className="text-center text-stone-400 py-10">No pending users.</p>}
+                      </div>
+                  )}
+
+                  {/* ORDERS TAB (NEW) */}
+                  {activeTab === 'orders' && (
+                      <div className="space-y-6">
+                          {reviewOrders.map(order => (
+                              <div key={order.id} className="better-box p-6 flex flex-col md:flex-row gap-6">
+                                  <div className="flex-1">
+                                      <h3 className="font-bold text-lg mb-2">Order #{order.id.slice(0,6)}</h3>
+                                      <div className="grid grid-cols-2 gap-4 text-sm mb-4">
+                                          <div>
+                                              <p className="font-bold text-stone-500 text-xs uppercase">Customer</p>
+                                              <p>{order.delivery?.name || 'Unknown'}</p>
+                                          </div>
+                                          <div>
+                                              <p className="font-bold text-stone-500 text-xs uppercase">Total Paid</p>
+                                              <p className="font-black text-lg">₹{order.grandTotalPaid || order.total || 0}</p>
+                                          </div>
+                                      </div>
+                                      {order.screenshotUrl ? (
+                                          <div className="bg-stone-50 p-3 rounded-xl border border-stone-200">
+                                              <p className="text-xs font-bold text-stone-500 uppercase mb-2">Payment Proof</p>
+                                              <a href={order.screenshotUrl} target="_blank">
+                                                  <img src={order.screenshotUrl} className="w-full h-32 object-cover rounded-lg hover:opacity-90 cursor-zoom-in" />
+                                              </a>
+                                          </div>
+                                      ) : <p className="text-red-500 font-bold">No Screenshot</p>}
+                                  </div>
+                                  <div className="w-full md:w-64 flex flex-col justify-center gap-3">
+                                      <div className="bg-blue-50 p-3 rounded-lg text-xs text-blue-700 mb-2">
+                                          <strong>Action Required:</strong> Confirm you received the payment. This will allow the farmer to accept the order.
+                                      </div>
+                                      <button onClick={() => handleOrderPaymentVerification(order.id)} className="w-full py-3 bg-emerald-600 text-white font-bold rounded-xl shadow-lg hover:bg-emerald-700 flex items-center justify-center gap-2">
+                                          <CheckCircle className="w-4 h-4"/> Confirm Payment
+                                      </button>
+                                  </div>
+                              </div>
+                          ))}
+                          {reviewOrders.length === 0 && <p className="text-center text-stone-400 py-10">No new orders to verify.</p>}
+                      </div>
+                  )}
+                  
+                  {/* PRODUCTS TAB */}
+                  {activeTab === 'products' && (
+                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                           {pendingProducts.map(p => (
+                               <div key={p.id} className="better-box p-4">
+                                   <div className="flex gap-3 mb-3">
+                                       <img src={p.imageUrl} className="w-16 h-16 rounded-lg object-cover bg-stone-100"/>
+                                       <div>
+                                           <h4 className="font-bold">{p?.name || 'Unnamed'}</h4>
+                                           <p className="text-xs text-stone-500">₹{p?.price}/{p?.unit}</p>
+                                       </div>
+                                   </div>
+                                   {selectedProduct === p.id ? (
+                                          <div className="bg-red-50 p-3 rounded-xl">
+                                              <input className="w-full text-sm p-2 border border-red-200 rounded-lg mb-2" placeholder="Reason..." value={productRejectReason} onChange={e => setProductRejectReason(e.target.value)} />
+                                              <div className="flex gap-2">
+                                                  <button onClick={() => { handleProductApproval(p.id, 'reject', productRejectReason); setSelectedProduct(null); }} className="flex-1 bg-red-500 text-white py-2 rounded-lg text-xs font-bold">Confirm</button>
+                                                  <button onClick={() => setSelectedProduct(null)} className="px-3 bg-white text-stone-500 rounded-lg text-xs font-bold">Cancel</button>
+                                              </div>
+                                          </div>
+                                      ) : (
+                                          <div className="flex gap-2">
+                                              <button onClick={() => handleProductApproval(p.id, 'approve')} className="flex-1 py-2 bg-emerald-600 text-white rounded-lg text-sm font-bold shadow-lg shadow-emerald-200 hover:bg-emerald-700">Approve</button>
+                                              <button onClick={() => setSelectedProduct(p.id)} className="flex-1 py-2 bg-white border border-red-100 text-red-500 rounded-lg text-sm font-bold hover:bg-red-50">Reject</button>
+                                          </div>
+                                      )}
+                               </div>
+                           ))}
+                           {pendingProducts.length === 0 && <p className="col-span-full text-center text-stone-400 py-10">No pending products.</p>}
+                       </div>
+                  )}
+
+                  {/* SETTINGS TAB */}
+                  {activeTab === 'settings' && (
+                      <div className="max-w-md mx-auto better-box p-8">
+                          <h2 className="text-xl font-bold mb-4">Payment Settings</h2>
+                          <form onSubmit={handleSaveSettings} className="space-y-4">
+                              <input className="input-better" value={paymentSettings.upiId} onChange={e => setPaymentSettings({...paymentSettings, upiId: e.target.value})} placeholder="Platform UPI ID" />
+                              <div className="border-2 border-dashed p-6 text-center rounded-xl">
+                                  <p className="text-sm font-bold text-stone-500 mb-2">{qrFile ? qrFile.name : "Upload QR Code"}</p>
+                                  <input type="file" onChange={e => setQrFile(e.target.files[0])} />
+                              </div>
+                              <button disabled={savingSettings} className="w-full py-3 bg-stone-900 text-white font-bold rounded-xl flex items-center justify-center gap-2">
+                                {savingSettings && <Loader2 className="animate-spin w-4 h-4"/>}
+                                Save Settings
+                              </button>
+                          </form>
+                      </div>
+                  )}
+                </div>
+              </div>
+            );
+          };
+
+          const BuyerMarketplace = () => {
+            const [cart, setCart] = useState([]);
+            const [searchTerm, setSearchTerm] = useState("");
+            const [showCheckout, setShowCheckout] = useState(false);
+            const [selectedProduct, setSelectedProduct] = useState(null);
+            
+            useEffect(() => {
+                const saved = localStorage.getItem('farm2home_cart');
+                if (saved) setCart(JSON.parse(saved));
+            }, []);
+
+            useEffect(() => {
+                localStorage.setItem('farm2home_cart', JSON.stringify(cart));
+            }, [cart]);
+
+            const addToCart = (product) => {
+              if (Number(product.stock) <= 0) {
+                  showNotification("Out of stock", "error");
+                  return;
+              }
+              setCart(prevCart => {
+                  const existing = prevCart.find(c => c.id === product.id);
+                  if (existing) {
+                      if (existing.quantity >= Number(product.stock)) {
+                          showNotification("Max stock reached", "error");
+                          return prevCart;
+                      }
+                      showNotification("Added +1 to cart", "success");
+                      return prevCart.map(c => c.id === product.id ? {...c, quantity: c.quantity + 1} : c);
+                  } else {
+                      showNotification("Added to cart", "success");
+                      return [...prevCart, {...product, quantity: 1}];
+                  }
+              });
+            };
+
+            const removeFromCart = (productId) => {
+              setCart(prevCart => prevCart.filter(item => item.id !== productId));
+              showNotification("Removed from cart", "success");
+            };
+
+            const filteredProducts = products.filter(p => 
+                p.status === 'approved' && 
+                (p?.name || '').toLowerCase().includes(searchTerm.toLowerCase())
+            );
+
+            return (
+              <div className="min-h-screen pt-28 pb-12 px-4 bg-stone-50">
+                <div className="max-w-7xl mx-auto flex flex-col lg:flex-row gap-10">
+                  <div className="flex-1">
+                      <div className="mb-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                        <div>
+                            <h1 className="text-4xl font-black text-stone-900 tracking-tight">Marketplace</h1>
+                            <p className="text-stone-500 mt-1">Fresh harvests available today</p>
+                        </div>
+                        <div className="relative w-full md:w-80">
+                            <input type="text" placeholder="Search vegetables..." className="w-full pl-12 pr-4 py-3.5 rounded-2xl bg-white shadow-sm border border-stone-100 focus:ring-2 focus:ring-green-100 outline-none transition-all" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-400" />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8">
+                          {filteredProducts.map(p => {
+                           const stock = Number(p.stock);
+                           const isOutOfStock = stock <= 0;
+                           return (
+                             <div key={p.id} className={`better-box p-4 group ${isOutOfStock ? 'opacity-75 grayscale' : ''}`}>
+                                <div className="relative overflow-hidden rounded-2xl mb-4 h-56">
+                                    <img src={p.imageUrl || "https://images.unsplash.com/photo-1595855709915-445676396827?auto=format&fit=crop&q=80"} alt={p?.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110 cursor-pointer" onClick={() => setSelectedProduct(p)} />
+                                    {isOutOfStock && <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white font-bold uppercase tracking-widest backdrop-blur-sm">Sold Out</div>}
+                                    {!isOutOfStock && <button onClick={() => addToCart(p)} className="absolute bottom-3 right-3 bg-white text-emerald-700 p-3 rounded-xl shadow-lg hover:bg-emerald-600 hover:text-white transition-all active:scale-90"><ShoppingCart className="w-5 h-5"/></button>}
+                                </div>
+                                <div className="px-2 pb-2">
+                                    <h3 className="font-bold text-lg text-stone-900 mb-1 truncate cursor-pointer hover:text-emerald-700" onClick={() => setSelectedProduct(p)}>{p?.name}</h3>
+                                    <p className="text-xs text-stone-500 mb-3 flex items-center gap-1"><User className="w-3 h-3"/> {p?.farmerName}</p>
+                                    <div className="flex items-end justify-between">
                                         <div>
-                                            <h4 className="font-bold text-gray-800 leading-tight">{p.name}</h4>
-                                            <p className="text-xs text-gray-500 mt-1">by {p.farmerName}</p>
-                                            <p className="font-black text-green-600 mt-1">₹{p.price}</p>
+                                            <span className="text-2xl font-black text-stone-900 flex items-center"><span className="text-lg mr-0.5">₹</span>{p?.price}</span>
+                                            <span className="text-xs text-stone-400 font-bold uppercase">Per {p?.unit}</span>
                                         </div>
                                     </div>
-                                    <div className="flex gap-2 mt-4">
-                                        <button onClick={() => handleProductApproval(p.id, 'reject', 'Policy violation')} className="flex-1 py-2 rounded-full bg-red-50 text-red-600 font-bold hover:bg-red-100 transition-colors">Reject</button>
-                                        <button onClick={() => handleProductApproval(p.id, 'approve')} className="flex-1 py-2 rounded-full bg-green-50 text-green-600 font-bold hover:bg-green-100 transition-colors">Approve</button>
-                                    </div>
-                                </BubbleCard>
-                            ))}
-                            {pendingProducts.length === 0 && <div className="col-span-full text-center text-gray-400 py-8 bg-white/50 rounded-[2rem] border-2 border-dashed border-gray-200">No products pending.</div>}
-                        </div>
-                     </section>
-                 </div>
-             )
-          };
-
-          const Marketplace = () => {
-             const [cart, setCart] = useState([]);
-             const [search, setSearch] = useState("");
-             const [modalItem, setModalItem] = useState(null);
-             const [checkoutOpen, setCheckoutOpen] = useState(false);
-
-             useEffect(() => { const s = localStorage.getItem('cart'); if(s) setCart(JSON.parse(s)); }, []);
-             useEffect(() => { localStorage.setItem('cart', JSON.stringify(cart)); }, [cart]);
-
-             const addToCart = (p) => {
-                 if(Number(p.stock)<=0) return showNotification("Out of stock", "error");
-                 setCart(prev => {
-                    const ex = prev.find(i => i.id === p.id);
-                    if(ex) return prev.map(i => i.id === p.id ? {...i, quantity: i.quantity+1} : i);
-                    return [...prev, {...p, quantity: 1}];
-                 });
-                 showNotification("Added to basket!", "success");
-             };
-
-             const filtered = products.filter(p => p.status === 'approved' && p.name.toLowerCase().includes(search.toLowerCase()));
-
-             return (
-                 <div className="min-h-screen pt-28 pb-12 px-4 max-w-7xl mx-auto flex flex-col md:flex-row gap-8">
-                     <div className="flex-1">
-                         <div className="flex items-center gap-4 mb-8 bg-white p-2 rounded-full shadow-sm border border-gray-100">
-                             <Search className="ml-4 text-gray-300"/>
-                             <input className="w-full bg-transparent outline-none text-gray-700 font-medium placeholder-gray-300 h-10" placeholder="Search for fresh veggies..." value={search} onChange={e => setSearch(e.target.value)} />
-                         </div>
-                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                             {filtered.map(p => {
-                                 const noStock = Number(p.stock) <= 0;
-                                 return (
-                                     <div key={p.id} className={`bg-white p-5 rounded-[2.5rem] shadow-sm hover:shadow-2xl transition-all duration-300 border border-transparent hover:border-green-100 group ${noStock ? 'opacity-60' : ''}`}>
-                                         <div className="relative mb-4 overflow-hidden rounded-[2rem]">
-                                             <img src={p.imageUrl} className="w-full h-48 object-cover transform group-hover:scale-110 transition-transform duration-500" onClick={() => setModalItem(p)}/>
-                                             {noStock && <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-white font-black text-xl backdrop-blur-sm">SOLD OUT</div>}
-                                             {!noStock && <button onClick={() => addToCart(p)} className="absolute bottom-3 right-3 bg-white text-green-600 p-3 rounded-full shadow-lg hover:bg-green-600 hover:text-white transition-colors transform translate-y-12 group-hover:translate-y-0 duration-300"><ShoppingCart size={20}/></button>}
-                                         </div>
-                                         <h3 className="font-bold text-lg text-gray-800 mb-1">{p.name}</h3>
-                                         <div className="flex justify-between items-center">
-                                             <p className="text-xs text-gray-400 font-bold uppercase">{p.farmerName}</p>
-                                             <p className="text-lg font-black text-green-600">₹{p.price}<span className="text-xs font-normal text-gray-400">/{p.unit}</span></p>
-                                         </div>
-                                     </div>
-                                 );
-                             })}
-                         </div>
-                     </div>
-                     <div className="w-full md:w-96">
-                         <BubbleCard className="sticky top-28 border-2 border-green-50">
-                             <h3 className="text-xl font-bold mb-6 flex items-center gap-2">🛒 Basket <span className="text-sm font-normal text-gray-400 ml-auto">{cart.length} items</span></h3>
-                             {cart.length === 0 ? (
-                                 <div className="text-center py-10 text-gray-300 font-bold text-sm">Basket is empty</div>
-                             ) : (
-                                 <div className="space-y-4 mb-6 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                                     {cart.map((item, idx) => (
-                                         <div key={idx} className="flex justify-between items-center bg-gray-50 p-3 rounded-2xl">
-                                             <div className="flex items-center gap-3">
-                                                 <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center font-bold text-xs text-gray-400 border border-gray-100">x{item.quantity}</div>
-                                                 <div>
-                                                     <p className="font-bold text-sm text-gray-700">{item.name}</p>
-                                                     <p className="text-xs text-gray-400">₹{item.price * item.quantity}</p>
-                                                 </div>
-                                             </div>
-                                             <button onClick={() => setCart(c => c.filter(i => i.id !== item.id))} className="text-red-300 hover:text-red-500"><XCircle size={18}/></button>
-                                         </div>
-                                     ))}
-                                 </div>
-                             )}
-                             {cart.length > 0 && (
-                                 <>
-                                     <div className="flex justify-between text-xl font-black text-gray-800 mb-6 px-2">
-                                         <span>Total</span>
-                                         <span>₹{cart.reduce((s,i)=>s+(i.price*i.quantity),0)}</span>
-                                     </div>
-                                     <BubbleButton onClick={() => setCheckoutOpen(true)} className="w-full shadow-xl shadow-green-200">Checkout Now</BubbleButton>
-                                 </>
-                             )}
-                         </BubbleCard>
-                     </div>
-                     
-                     {/* Product Detail Modal */}
-                     {modalItem && (
-                         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-green-900/20 backdrop-blur-sm" onClick={() => setModalItem(null)}>
-                             <BubbleCard className="max-w-lg w-full p-0 overflow-hidden relative" onClick={e => e.stopPropagation()}>
-                                 <img src={modalItem.imageUrl} className="w-full h-64 object-cover"/>
-                                 <button onClick={() => setModalItem(null)} className="absolute top-4 right-4 bg-white/80 p-2 rounded-full backdrop-blur-md"><X size={20}/></button>
-                                 <div className="p-8">
-                                     <div className="flex justify-between items-start mb-4">
-                                         <h2 className="text-3xl font-black text-gray-800">{modalItem.name}</h2>
-                                         <span className="text-2xl font-bold text-green-600">₹{modalItem.price}<span className="text-sm text-gray-400">/{modalItem.unit}</span></span>
-                                     </div>
-                                     <p className="text-gray-500 mb-6 leading-relaxed">{modalItem.description || "No description."}</p>
-                                     <div className="flex gap-2 mb-8">
-                                         {modalItem.pesticides ? <span className="bg-red-50 text-red-600 px-3 py-1 rounded-full text-xs font-bold">Contains Pesticides</span> : <span className="bg-green-50 text-green-600 px-3 py-1 rounded-full text-xs font-bold">Organic / Pesticide Free</span>}
-                                         <span className="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-xs font-bold">{modalItem.stock} in stock</span>
-                                     </div>
-                                     <BubbleButton className="w-full" onClick={() => { addToCart(modalItem); setModalItem(null); }} disabled={Number(modalItem.stock)<=0}>Add to Basket</BubbleButton>
-                                 </div>
-                             </BubbleCard>
-                         </div>
-                     )}
-
-                     {checkoutOpen && (
-                         <CheckoutModal cart={cart} onClose={() => setCheckoutOpen(false)} onConfirm={placeOrder} />
-                     )}
-                 </div>
-             )
-          };
-
-          const CheckoutModal = ({ cart, onClose, onConfirm }) => {
-              // ... Simplified checkout logic adapt to bubble ...
-              const [delivery, setDelivery] = useState({ name: currentUser?.name||'', email: currentUser?.email||'', phone: currentUser?.phone||'', address: currentUser?.address||'', city: '', zip: '' });
-              const [screen, setScreen] = useState(null);
-              const [uploading, setUploading] = useState(false);
-              const total = cart.reduce((a,b) => a + (b.price*b.quantity), 0) + 60; // Flat delivery
-
-              const handleSubmit = async () => {
-                  if(!screen) return alert("Upload payment screenshot");
-                  setUploading(true);
-                  try {
-                    const url = await uploadToCloudinary(screen);
-                    // Group by farmer for simplicity in this demo view, we just send one order object per farmer ideally, 
-                    // but keeping it simple:
-                    await onConfirm({ items: cart, delivery, total, subtotal: total-60, deliveryFee: 60, screenshotUrl: url });
-                    onClose();
-                  } catch(e) { console.error(e); } finally { setUploading(false); }
-              };
-
-              return (
-                  <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-green-900/30 backdrop-blur-md">
-                      <BubbleCard className="max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-                          <h2 className="text-2xl font-black mb-6">Checkout</h2>
-                          <div className="grid md:grid-cols-2 gap-6">
-                              <div className="space-y-4">
-                                  <h4 className="font-bold text-gray-400 text-sm uppercase">Shipping</h4>
-                                  <BubbleInput placeholder="Name" value={delivery.name} onChange={e => setDelivery({...delivery, name: e.target.value})} />
-                                  <BubbleInput placeholder="Address" value={delivery.address} onChange={e => setDelivery({...delivery, address: e.target.value})} />
-                                  <div className="grid grid-cols-2 gap-3">
-                                      <BubbleInput placeholder="City" value={delivery.city} onChange={e => setDelivery({...delivery, city: e.target.value})} />
-                                      <BubbleInput placeholder="ZIP" value={delivery.zip} onChange={e => setDelivery({...delivery, zip: e.target.value})} />
-                                  </div>
-                              </div>
-                              <div className="space-y-4">
-                                  <h4 className="font-bold text-gray-400 text-sm uppercase">Payment (Total: ₹{total})</h4>
-                                  <div className="bg-gray-50 p-6 rounded-[2rem] text-center border-2 border-dashed border-gray-200">
-                                      <p className="text-sm font-bold text-gray-500 mb-2">Scan QR code from seller list or pay via UPI</p>
-                                      <div className="text-xs text-gray-400 mb-4">Upload Screenshot of Payment</div>
-                                      <input type="file" onChange={e => setScreen(e.target.files[0])} />
-                                  </div>
-                              </div>
-                          </div>
-                          <div className="mt-8 flex gap-4">
-                              <BubbleButton variant="secondary" onClick={onClose} className="flex-1">Cancel</BubbleButton>
-                              <BubbleButton onClick={handleSubmit} disabled={uploading} className="flex-1">{uploading ? 'Processing...' : 'Confirm Order'}</BubbleButton>
-                          </div>
-                      </BubbleCard>
+                                </div>
+                             </div>
+                           );
+                          })}
+                          {filteredProducts.length === 0 && <div className="col-span-full py-20 text-center text-stone-400 bg-white rounded-[2rem] border border-dashed border-stone-200">No products matching your search.</div>}
+                      </div>
                   </div>
-              )
+
+                  <div className="w-full lg:w-96 shrink-0">
+                    <div className="bg-white p-6 rounded-[2rem] shadow-xl shadow-stone-200/50 border border-stone-100 sticky top-28">
+                      <h2 className="text-xl font-bold mb-6 flex items-center gap-2 text-stone-900"><ShoppingCart className="w-5 h-5"/> Your Basket</h2>
+                      {cart.length === 0 ? <div className="text-center py-10 text-stone-400 text-sm">Your basket is empty</div> : (
+                        <div className="space-y-4">
+                          <div className="max-h-[50vh] overflow-y-auto space-y-3 pr-2 scrollbar-thin">
+                              {cart.map((item, idx) => (
+                                <div key={idx} className="flex justify-between items-center text-sm p-3 bg-stone-50 rounded-xl group">
+                                  <div>
+                                      <div className="font-bold text-stone-900">{item.name}</div>
+                                      <div className="text-stone-500 text-xs">{item.quantity} {item.unit} x ₹{item.price}</div>
+                                  </div>
+                                  <div className="flex items-center gap-3">
+                                    <span className="font-bold text-stone-900">₹{(item.quantity * item.price).toFixed(0)}</span>
+                                    {/* FIXED: Prevent default/propagation */}
+                                    <button onClick={(e) => { e.stopPropagation(); removeFromCart(item.id); }} className="text-stone-300 hover:text-red-500 transition-colors"><XCircle className="w-5 h-5"/></button>
+                                  </div>
+                                </div>
+                              ))}
+                          </div>
+                          <div className="border-t border-stone-100 pt-6 mt-4">
+                              <div className="flex justify-between text-lg font-black text-stone-900 mb-6">
+                                  <span>Total</span>
+                                  <span className="flex items-center"><span className="text-base mr-1">₹</span>{cart.reduce((s,i)=>s+(i.price*i.quantity),0).toFixed(2)}</span>
+                              </div>
+                              <button onClick={() => setShowCheckout(true)} className="w-full py-4 bg-stone-900 text-white font-bold rounded-2xl shadow-lg shadow-stone-900/20 hover:bg-stone-800 hover:-translate-y-0.5 transition-all">Checkout Now</button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                
+                {selectedProduct && (
+                  <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-sm animate-in fade-in" onClick={() => setSelectedProduct(null)}>
+                    <div className="bg-white rounded-[2rem] p-6 max-w-lg w-full shadow-2xl relative animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
+                       <button onClick={() => setSelectedProduct(null)} className="absolute top-4 right-4 p-2 bg-stone-100 rounded-full hover:bg-stone-200 transition-colors z-10"><X className="w-5 h-5 text-stone-500"/></button>
+                       <img src={selectedProduct.imageUrl} className="w-full h-64 object-cover rounded-2xl mb-6 shadow-md" />
+                       <div className="mb-6">
+                           <h2 className="text-3xl font-black text-stone-900 mb-2">{selectedProduct.name}</h2>
+                           <p className="text-stone-500 text-sm flex items-center gap-2"><User className="w-4 h-4"/> Sold by <strong>{selectedProduct.farmerName}</strong></p>
+                           {selectedProduct.farmAddress && <p className="text-stone-400 text-xs mt-1 ml-6">{selectedProduct.farmAddress}</p>}
+                       </div>
+                       <p className="text-stone-600 text-sm leading-relaxed mb-6 bg-stone-50 p-4 rounded-xl">{selectedProduct.description || "Fresh, organic produce."}</p>
+                       <div className="flex gap-3">
+                           {Number(selectedProduct.stock) > 0 ? (
+                               <button onClick={() => { addToCart(selectedProduct); setSelectedProduct(null); }} className="flex-1 py-3.5 bg-emerald-600 text-white font-bold rounded-xl shadow-lg shadow-emerald-600/30 hover:bg-emerald-700 transition-all">Add to Cart - ₹{selectedProduct.price}</button>
+                           ) : (
+                               <button disabled className="flex-1 py-3.5 bg-stone-100 text-stone-400 font-bold rounded-xl cursor-not-allowed">Out of Stock</button>
+                           )}
+                       </div>
+                    </div>
+                  </div>
+                )}
+
+                {showCheckout && <CheckoutModal cart={cart} onClose={() => setShowCheckout(false)} onConfirm={() => setCart([])} />}
+              </div>
+            );
           };
 
           const Hero = () => (
-             <div className="relative pt-40 pb-20 overflow-hidden">
-                 <div className="absolute top-0 right-0 w-2/3 h-full bg-gradient-to-l from-green-100 to-transparent rounded-l-[10rem] -z-10 opacity-60"></div>
-                 <div className="max-w-7xl mx-auto px-6 flex flex-col lg:flex-row items-center gap-12">
-                     <div className="flex-1 space-y-6">
-                         <div className="inline-flex items-center gap-2 bg-white px-4 py-2 rounded-full shadow-sm text-green-600 font-bold text-xs uppercase tracking-wide border border-green-50 animate-bounce">
-                             <Sparkles size={14}/> Fresh Harvest Today
-                         </div>
-                         <h1 className="text-6xl md:text-7xl font-black text-gray-800 leading-[1.1] tracking-tight">
-                             Eat Fresh. <br/>
-                             <span className="text-transparent bg-clip-text bg-gradient-to-r from-green-500 to-lime-500">Live Better.</span>
-                         </h1>
-                         <p className="text-xl text-gray-500 max-w-lg leading-relaxed">
-                             Direct from the soil to your kitchen. No middlemen, just pure, organic goodness grown by your neighbors.
-                         </p>
-                         <div className="flex gap-4 pt-4">
-                             <BubbleButton onClick={() => setView('marketplace')} className="shadow-xl shadow-green-200">Start Shopping</BubbleButton>
-                             <BubbleButton variant="secondary" onClick={() => setView('about')}>Our Story</BubbleButton>
-                         </div>
-                     </div>
-                     <div className="flex-1 relative">
-                         <div className="relative z-10 bg-white/60 backdrop-blur-xl p-8 rounded-[3rem] shadow-2xl shadow-green-900/10 border border-white/50 transform rotate-2 hover:rotate-0 transition-all duration-500">
-                             <div className="flex items-center justify-between mb-6">
-                                 <h3 className="font-bold text-2xl text-gray-800">Fresh Picks</h3>
-                                 <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-                             </div>
-                             <div className="space-y-4">
-                                 {products.slice(0,3).map((p,i) => (
-                                     <div key={i} className="flex items-center gap-4 bg-white p-3 rounded-[1.5rem] shadow-sm">
-                                         <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center text-xl">🥬</div>
-                                         <div className="flex-1">
-                                             <div className="font-bold text-gray-800">{p.name}</div>
-                                             <div className="text-xs text-gray-400">₹{p.price}/{p.unit}</div>
-                                         </div>
-                                         <button className="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center hover:scale-110 transition-transform"><ShoppingCart size={14}/></button>
-                                     </div>
-                                 ))}
-                                 {products.length === 0 && <div className="text-center py-4 text-gray-400 text-sm">Loading market data...</div>}
-                             </div>
-                         </div>
-                         {/* Floating bubbles */}
-                         <div className="absolute -top-10 -right-10 w-32 h-32 bg-lime-300 rounded-full mix-blend-multiply filter blur-xl opacity-50 animate-blob"></div>
-                         <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-green-300 rounded-full mix-blend-multiply filter blur-xl opacity-50 animate-blob animation-delay-2000"></div>
-                     </div>
-                 </div>
-             </div>
+            <div className="space-y-24">
+              <section className="relative pt-32 pb-10 lg:pt-48 lg:pb-20 overflow-hidden">
+                <div className="absolute top-0 right-0 w-[60%] h-full bg-gradient-to-l from-green-50 to-transparent -z-10 rounded-l-[100px]" />
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col lg:flex-row items-center gap-16">
+                  <div className="flex-1 space-y-8 text-center lg:text-left z-10">
+                    <div className="inline-block px-4 py-1.5 rounded-full bg-green-100 text-green-700 font-bold text-sm tracking-wide mb-2 animate-in slide-in-from-left-4 fade-in duration-700">Support Local Farmers</div>
+                    <h1 className="text-5xl lg:text-7xl font-extrabold text-stone-900 leading-[1.1] tracking-tight">
+                      Pure Nature, <br />
+                      <span className="text-transparent bg-clip-text bg-gradient-to-r from-green-600 to-emerald-400">Delivered Fresh.</span>
+                    </h1>
+                    <p className="text-xl text-stone-500 max-w-xl mx-auto lg:mx-0 leading-relaxed font-light">
+                      Direct from the soil to your kitchen. We bridge the gap between rural farmers and your home, ensuring fair prices and premium quality.
+                    </p>
+                    <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 pt-4">
+                      <button onClick={() => !currentUser ? setView('auth') : setView('marketplace')} className="bg-stone-900 text-white px-8 py-4 rounded-2xl font-bold text-lg hover:bg-stone-800 hover:-translate-y-1 transition-all shadow-xl shadow-stone-900/20">
+                          {currentUser ? 'Start Shopping' : 'Join the Community'}
+                      </button>
+                      <button onClick={() => setView('about')} className="px-8 py-4 rounded-2xl font-bold text-stone-600 hover:bg-white hover:shadow-lg transition-all border border-transparent hover:border-stone-100">Learn More</button>
+                    </div>
+                  </div>
+                  <div className="flex-1 relative w-full max-w-lg lg:max-w-none">
+                      <div className="relative z-10 bg-white/60 backdrop-blur-xl p-8 rounded-[3rem] shadow-[0_30px_60px_-15px_rgba(0,0,0,0.1)] border border-white/50 animate-in slide-in-from-right-8 duration-1000">
+                          <div className="flex justify-between items-center mb-8">
+                              <div>
+                                  <h3 className="font-bold text-2xl text-stone-900">Daily Harvest</h3>
+                                  <p className="text-stone-400 text-sm">Fresh arrivals today</p>
+                              </div>
+                              <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center text-green-600"><Leaf size={20}/></div>
+                          </div>
+                          <div className="space-y-4">
+                              {products.slice(0, 3).map((p, i) => (
+                                  <div key={i} className="flex items-center gap-4 p-4 bg-white rounded-2xl shadow-sm hover:shadow-md transition-all cursor-pointer border border-stone-50" onClick={() => setView('marketplace')}>
+                                      <img src={p.imageUrl || "https://images.unsplash.com/photo-1595855709915-445676396827?auto=format&fit=crop&q=80"} className="w-14 h-14 rounded-xl object-cover" />
+                                      <div className="flex-1">
+                                          <h4 className="font-bold text-stone-900">{p.name}</h4>
+                                          <p className="text-xs text-stone-400">{p.stock} {p.unit} available</p>
+                                      </div>
+                                      <span className="font-black text-green-600">₹{p.price}</span>
+                                  </div>
+                              ))}
+                              {products.length === 0 && <div className="text-center py-6 text-stone-400 text-sm">Loading market data...</div>}
+                          </div>
+                      </div>
+                      {/* Decorative Blob */}
+                      <div className="absolute -top-10 -right-10 w-64 h-64 bg-green-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-pulse"></div>
+                      <div className="absolute -bottom-10 -left-10 w-64 h-64 bg-blue-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-pulse" style={{animationDelay: '1s'}}></div>
+                  </div>
+                </div>
+              </section>
+
+              {/* NEW FEATURES SECTION */}
+              <section className="py-16 bg-white">
+                  <div className="max-w-7xl mx-auto px-4">
+                      <div className="text-center max-w-2xl mx-auto mb-16">
+                          <h2 className="text-4xl font-black text-stone-900 mb-4">Why Choose Farm2Home?</h2>
+                          <p className="text-stone-500 text-lg">We're more than just a marketplace. We're a movement towards sustainable, healthy living.</p>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                          {[
+                              {icon: <Users className="w-8 h-8"/>, title: "Join Community", desc: "Connect with thousands of local food lovers.", color: "bg-green-100 text-green-700"},
+                              {icon: <Bike className="w-8 h-8"/>, title: "Fast Delivery", desc: "Farm fresh produce delivered within hours.", color: "bg-blue-100 text-blue-700"},
+                              {icon: <ShieldCheck className="w-8 h-8"/>, title: "Trusted Farmers", desc: "100% Verified local farmers & producers.", color: "bg-purple-100 text-purple-700"},
+                              {icon: <RefreshCw className="w-8 h-8"/>, title: "Easy Refunds", desc: "Not satisfied? Get a refund instantly.", color: "bg-amber-100 text-amber-700"},
+                          ].map((feat, idx) => (
+                              <div key={idx} className="better-box p-8 text-center hover:-translate-y-2 transition-transform duration-300">
+                                  <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6 ${feat.color}`}>
+                                      {feat.icon}
+                                  </div>
+                                  <h3 className="font-bold text-xl text-stone-900 mb-3">{feat.title}</h3>
+                                  <p className="text-stone-500 text-sm leading-relaxed">{feat.desc}</p>
+                              </div>
+                          ))}
+                      </div>
+
+                      <div className="mt-16 bg-stone-900 rounded-[3rem] p-12 text-center text-white relative overflow-hidden">
+                          <div className="relative z-10">
+                              <h3 className="text-3xl font-bold mb-4">24/7 Dedicated Support</h3>
+                              <p className="text-stone-400 mb-8 max-w-xl mx-auto">Have questions? Our support team is always here to help you with your orders, payments, or any other queries.</p>
+                              <button className="bg-white text-stone-900 px-8 py-3 rounded-xl font-bold hover:bg-stone-200 transition-colors flex items-center gap-2 mx-auto">
+                                  <Headphones className="w-5 h-5"/> Contact Support
+                              </button>
+                          </div>
+                          <div className="absolute top-0 right-0 w-64 h-64 bg-green-500/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+                          <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-500/20 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2"></div>
+                      </div>
+                  </div>
+              </section>
+            </div>
           );
 
-          if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#f0fdf4]"><Loader2 className="w-12 h-12 animate-spin text-green-500" /></div>;
+          if (loading) return (
+            <div className="min-h-screen flex flex-col items-center justify-center bg-white gap-4">
+                <Loader2 className="w-10 h-10 animate-spin text-green-600" />
+                <p className="text-stone-400 font-medium animate-pulse">Growing something fresh...</p>
+            </div>
+          );
 
           return (
-            <div className="min-h-screen flex flex-col font-sans text-gray-800">
-               <Navbar />
-               {notification && (
-                   <div className={`fixed bottom-6 right-6 z-[100] px-8 py-4 rounded-full text-white font-bold shadow-2xl animate-in slide-in-from-bottom-10 flex items-center gap-3 ${notification.type === 'error' ? 'bg-red-500 shadow-red-200' : 'bg-green-600 shadow-green-200'}`}>
-                       {notification.type === 'error' ? <AlertCircle size={20}/> : <CheckCircle size={20}/>}
-                       {notification.msg}
-                   </div>
-               )}
-               <main className="flex-grow">
-                 {view === 'home' && <Hero />}
-                 {view === 'about' && <AboutUs />}
-                 {view === 'auth' && <AuthScreen />}
-                 {view === 'farmer-panel' && <FarmerDashboard />}
-                 {view === 'mod-panel' && <ModDashboard />}
-                 {view === 'marketplace' && <Marketplace />}
-               </main>
-               <footer className="bg-white border-t border-green-50 py-12 mt-20">
-                   <div className="max-w-7xl mx-auto px-6 text-center">
-                       <div className="flex justify-center items-center gap-2 mb-6 opacity-50 grayscale hover:grayscale-0 transition-all">
-                           <Leaf size={24} className="text-green-600"/>
-                           <span className="text-xl font-black tracking-tight">Farm2Home</span>
-                       </div>
-                       <p className="text-gray-400 text-sm">© 2024 Farm2Home Platform. Cultivated with <Heart className="inline w-3 h-3 text-red-400 fill-current"/> for better living.</p>
-                   </div>
-               </footer>
+            <div className="font-sans text-stone-900 antialiased min-h-screen flex flex-col">
+              <Navbar />
+              {notification && <Notification msg={notification.msg} type={notification.type} />}
+              <main className="flex-grow">
+                {view === 'home' && <Hero />}
+                {view === 'about' && (
+                    <div className="pt-32 pb-20 text-center max-w-2xl mx-auto px-4">
+                        <h1 className="text-4xl font-black mb-6">Our Mission</h1>
+                        <p className="text-lg text-stone-500 leading-relaxed">We empower local farmers by cutting out the middleman, ensuring they get fair pay while you get the freshest, healthiest produce possible. We believe in transparency, sustainability, and community.</p>
+                    </div>
+                )}
+                {view === 'auth' && <AuthScreen />}
+                {view === 'farmer-panel' && currentUser?.role === 'farmer' && <FarmerDashboard />}
+                {view === 'mod-panel' && currentUser?.role === 'mod' && <ModDashboard />}
+                {view === 'marketplace' && <BuyerMarketplace />}
+              </main>
+              {(view === 'home' || view === 'marketplace' || view === 'about') && (
+                  <footer className="bg-white border-t border-stone-100 pt-16 pb-8 mt-12">
+                      <div className="max-w-7xl mx-auto px-4">
+                          <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
+                              <div className="col-span-1 md:col-span-2">
+                                  <div className="flex items-center gap-2 mb-6">
+                                      <Leaf className="text-green-600 w-6 h-6" />
+                                      <span className="text-2xl font-bold text-stone-900">Farm<span className="text-green-600">2</span>Home</span>
+                                  </div>
+                                  <p className="text-stone-500 leading-relaxed mb-6 max-w-sm">Connecting farmers directly to your kitchen. Experience the taste of real, organic, and sustainable produce.</p>
+                                  <div className="flex gap-4">
+                                      <a href="#" className="w-10 h-10 rounded-full bg-stone-100 flex items-center justify-center text-stone-600 hover:bg-green-100 hover:text-green-600 transition-all"><Facebook className="w-5 h-5"/></a>
+                                      <a href="#" className="w-10 h-10 rounded-full bg-stone-100 flex items-center justify-center text-stone-600 hover:bg-green-100 hover:text-green-600 transition-all"><Twitter className="w-5 h-5"/></a>
+                                      <a href="#" className="w-10 h-10 rounded-full bg-stone-100 flex items-center justify-center text-stone-600 hover:bg-green-100 hover:text-green-600 transition-all"><Instagram className="w-5 h-5"/></a>
+                                  </div>
+                              </div>
+                              <div>
+                                  <h4 className="font-bold text-stone-900 mb-6">Quick Links</h4>
+                                  <ul className="space-y-4 text-stone-500 text-sm">
+                                      <li><a href="#" className="hover:text-green-600 transition-colors">Home</a></li>
+                                      <li><a href="#" className="hover:text-green-600 transition-colors">Marketplace</a></li>
+                                      <li><a href="#" className="hover:text-green-600 transition-colors">About Us</a></li>
+                                      <li><a href="#" className="hover:text-green-600 transition-colors">Join as Farmer</a></li>
+                                  </ul>
+                              </div>
+                              <div>
+                                  <h4 className="font-bold text-stone-900 mb-6">Support & Policy</h4>
+                                  <ul className="space-y-4 text-stone-500 text-sm">
+                                      <li><a href="#" className="hover:text-green-600 transition-colors">Refund Policy</a></li>
+                                      <li><a href="#" className="hover:text-green-600 transition-colors">Shipping Policy</a></li>
+                                      <li><a href="#" className="hover:text-green-600 transition-colors">Terms of Service</a></li>
+                                      <li><a href="#" className="hover:text-green-600 transition-colors">24/7 Support</a></li>
+                                  </ul>
+                              </div>
+                          </div>
+                          <div className="border-t border-stone-100 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-stone-400">
+                              <p>&copy; {new Date().getFullYear()} Farm2Home Platform. All rights reserved.</p>
+                              <p className="flex items-center gap-1">Made with <Heart className="w-4 h-4 text-red-500 fill-red-500"/> for a Greener Earth.</p>
+                          </div>
+                      </div>
+                  </footer>
+              )}
             </div>
           );
         }
@@ -912,17 +1401,5 @@
         const root = createRoot(document.getElementById('root'));
         root.render(<App />);
     </script>
-    <style>
-      @keyframes blob {
-        0% { transform: translate(0px, 0px) scale(1); }
-        33% { transform: translate(30px, -50px) scale(1.1); }
-        66% { transform: translate(-20px, 20px) scale(0.9); }
-        100% { transform: translate(0px, 0px) scale(1); }
-      }
-      .animate-blob { animation: blob 7s infinite; }
-      .animation-delay-2000 { animation-delay: 2s; }
-      .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-      .custom-scrollbar::-webkit-scrollbar-thumb { background: #dcfce7; border-radius: 10px; }
-    </style>
 </body>
 </html>
