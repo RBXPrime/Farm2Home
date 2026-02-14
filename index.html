@@ -320,7 +320,28 @@
                 joinedDate: serverTimestamp(),
                 rejectionReason: null
               };
-              };
+
+              // This saves the data to Firebase
+              await setDoc(getDocRef("users", user.uid), userData);
+              
+              showNotification("Account created successfully!", "success");
+              setCurrentUser({ uid: user.uid, ...userData });
+
+              // Redirect to the correct dashboard based on role
+              if (role === 'farmer') setView('farmer-panel'); 
+              else if (role === 'delivery') setView('delivery-panel');
+              else if (role === 'mod') setView('mod-panel');
+              else setView('marketplace');
+
+            } catch (error) {
+              console.error(error);
+              showNotification(error.message, "error");
+              if (user) { try { await deleteUser(user); } catch(e) {} }
+            } finally {
+              setLoading(false);
+              if(setUploadProgress) setUploadProgress(0);
+            }
+          };
               await setDoc(getDocRef("users", user.uid), userData);
               showNotification("Account created successfully!", "success");
               setCurrentUser({ uid: user.uid, ...userData });
@@ -1988,6 +2009,7 @@
     </script>
 </body>
 </html>
+
 
 
 
