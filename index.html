@@ -345,9 +345,14 @@
               showNotification("Logged in successfully", "success");
               if (userDoc.exists()) {
                   const data = userDoc.data();
+                  
+                  // --- MODIFIED SECTION STARTS HERE ---
                   if (data.role === 'farmer') setView('farmer-panel');
+                  else if (data.role === 'delivery') setView('delivery-panel'); // <--- ADDED THIS LINE
                   else if (data.role === 'mod') setView('mod-panel');
                   else setView('marketplace');
+                  // --- MODIFIED SECTION ENDS HERE ---
+
               } else {
                   setView('home');
               }
@@ -1971,4 +1976,5 @@
     </script>
 </body>
 </html>
+
 
