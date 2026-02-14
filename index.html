@@ -293,12 +293,14 @@
                 if(setUploadProgress) setUploadProgress(100);
               }
               let role = formData.role;
-              let status = (formData.role === 'farmer') ? 'pending' : 'active';
+              let status = (formData.role === 'buyer') ? 'active' : 'pending';
+              
               if (MOD_EMAILS.includes(formData.email.toLowerCase())) {
                   role = 'mod';
                   status = 'active';
               }
-             const userData = {
+
+              const userData = {
                 name: formData.name,
                 email: formData.email,
                 phone: formData.phone || "",
@@ -306,14 +308,12 @@
                 role: role,
                 status: status,
                 aadhar: formData.aadhar || "",
-                
-                // --- NEW DELIVERY FIELDS ---
+                // --- DELIVERY SPECIFIC FIELDS ---
                 vehicleName: formData.vehicleName || "",
                 vehicleNumber: formData.vehicleNumber || "",
                 rejectionCount: 0,
                 isSuspended: false,
-                // ---------------------------
-                
+                // --------------------------------
                 docUrl: docUrl,
                 qrCodeUrl: "", 
                 upiId: "",
@@ -321,33 +321,16 @@
                 rejectionReason: null
               };
 
-              // This saves the data to Firebase
               await setDoc(getDocRef("users", user.uid), userData);
-              
               showNotification("Account created successfully!", "success");
               setCurrentUser({ uid: user.uid, ...userData });
 
-              // Redirect to the correct dashboard based on role
+              // Route to correct dashboard immediately
               if (role === 'farmer') setView('farmer-panel'); 
               else if (role === 'delivery') setView('delivery-panel');
               else if (role === 'mod') setView('mod-panel');
               else setView('marketplace');
 
-            } catch (error) {
-              console.error(error);
-              showNotification(error.message, "error");
-              if (user) { try { await deleteUser(user); } catch(e) {} }
-            } finally {
-              setLoading(false);
-              if(setUploadProgress) setUploadProgress(0);
-            }
-          };
-              await setDoc(getDocRef("users", user.uid), userData);
-              showNotification("Account created successfully!", "success");
-              setCurrentUser({ uid: user.uid, ...userData });
-              if (role === 'farmer') setView('farmer-panel'); 
-              else if (role === 'mod') setView('mod-panel');
-              else setView('marketplace');
             } catch (error) {
               console.error(error);
               showNotification(error.message, "error");
@@ -363,19 +346,14 @@
             try {
               const userCredential = await signInWithEmailAndPassword(auth, email, password);
               const userDoc = await getDoc(getDocRef("users", userCredential.user.uid));
-              showNotification("Logged in successfully", "success");
               if (userDoc.exists()) {
                   const data = userDoc.data();
+                  showNotification("Logged in successfully", "success");
                   
-                  // --- MODIFIED SECTION STARTS HERE ---
                   if (data.role === 'farmer') setView('farmer-panel');
-                  else if (data.role === 'delivery') setView('delivery-panel'); // <--- ADDED THIS LINE
+                  else if (data.role === 'delivery') setView('delivery-panel');
                   else if (data.role === 'mod') setView('mod-panel');
                   else setView('marketplace');
-                  // --- MODIFIED SECTION ENDS HERE ---
-
-              } else {
-                  setView('home');
               }
             } catch (error) {
               showNotification("Invalid email or password", "error");
@@ -386,7 +364,7 @@
 
           const handleLogout = async () => {
             await signOut(auth);
-            localStorage.removeItem('farm2home_view'); // Reset view on logout
+            localStorage.removeItem('farm2home_view');
             setView('home');
           };
 
@@ -2009,6 +1987,7 @@
     </script>
 </body>
 </html>
+
 
 
 
