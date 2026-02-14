@@ -298,7 +298,7 @@
                   role = 'mod';
                   status = 'active';
               }
-              const userData = {
+             const userData = {
                 name: formData.name,
                 email: formData.email,
                 phone: formData.phone || "",
@@ -306,11 +306,20 @@
                 role: role,
                 status: status,
                 aadhar: formData.aadhar || "",
+                
+                // --- NEW DELIVERY FIELDS ---
+                vehicleName: formData.vehicleName || "",
+                vehicleNumber: formData.vehicleNumber || "",
+                rejectionCount: 0,
+                isSuspended: false,
+                // ---------------------------
+                
                 docUrl: docUrl,
                 qrCodeUrl: "", 
                 upiId: "",
                 joinedDate: serverTimestamp(),
                 rejectionReason: null
+              };
               };
               await setDoc(getDocRef("users", user.uid), userData);
               showNotification("Account created successfully!", "success");
@@ -488,17 +497,101 @@
             </nav>
           );
           
-          const AuthScreen = () => {
+     const AuthScreen = () => {
              const [role, setRole] = useState('buyer'); 
              const [file, setFile] = useState(null);
              const [uploadProgress, setUploadProgress] = useState(0);
-             const [formData, setFormData] = useState({ name: '', email: '', password: '', phone: '', address: '', aadhar: '' });
+             // Added vehicle fields
+             const [formData, setFormData] = useState({ name: '', email: '', password: '', phone: '', address: '', aadhar: '', vehicleName: '', vehicleNumber: '' });
              
              const handleSubmit = (e) => {
                e.preventDefault();
                if (authMode === 'login') handleLogin(formData.email, formData.password);
                else handleSignup({ ...formData, role }, file, setUploadProgress);
              };
+
+             return (
+               <div className="min-h-screen pt-20 flex bg-[#FDFCF8]">
+                 <div className="hidden lg:flex w-1/2 bg-stone-900 relative items-center justify-center overflow-hidden">
+                    <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1617347454431-f49d7ff5c3b1?q=80&w=1740&auto=format&fit=crop')] bg-cover bg-center opacity-60 mix-blend-overlay"></div>
+                    <div className="absolute inset-0 bg-gradient-to-t from-stone-900 via-stone-900/60 to-transparent"></div>
+                    <div className="relative z-10 p-20 text-white max-w-2xl">
+                        <h1 className="text-6xl font-bold mb-6 leading-tight tracking-tight">Join the <span className="text-green-400">Green</span> Revolution.</h1>
+                        <p className="text-xl text-stone-300 leading-relaxed max-w-lg">Whether you grow, buy, or deliver, you are part of the family.</p>
+                    </div>
+                 </div>
+                 
+                 <div className="w-full lg:w-1/2 flex items-center justify-center p-8 lg:p-16 overflow-y-auto">
+                   <div className="w-full max-w-md animate-in slide-in-from-right-10 duration-500">
+                       <div className="mb-10 text-center lg:text-left">
+                           <h2 className="text-4xl font-bold text-stone-900 mb-3">{authMode === 'login' ? 'Welcome Back' : 'Create Account'}</h2>
+                       </div>
+
+                       <form onSubmit={handleSubmit} className="space-y-5">
+                         {authMode === 'signup' && (
+                           <div className="grid grid-cols-3 gap-2 p-1.5 bg-stone-100 rounded-2xl mb-6">
+                               {['buyer', 'farmer', 'delivery'].map((r) => (
+                                   <button type="button" key={r} onClick={() => setRole(r)} className={`py-3 text-sm font-bold rounded-xl capitalize transition-all ${role === r ? 'bg-white text-green-700 shadow-sm' : 'text-stone-500 hover:text-stone-700'}`}>
+                                       {r}
+                                   </button>
+                               ))}
+                           </div>
+                         )}
+                         
+                         {authMode === 'signup' && (
+                             <div className="space-y-4">
+                                 <input required placeholder="Full Name" className="input-better" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                                 <div className="relative">
+                                     <div className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-stone-400 border-r border-stone-200 pr-3 text-sm select-none pointer-events-none">+91</div>
+                                     <input required placeholder="Mobile Number" className="input-better pl-16" value={formData.phone} maxLength={10} onChange={e => setFormData({...formData, phone: e.target.value.replace(/\D/g, '').slice(0, 10)})} />
+                                 </div>
+                                 {(role === 'farmer' || role === 'buyer') && (
+                                     <input required placeholder="Address" className="input-better" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} />
+                                 )}
+                                 
+                                 {/* DELIVERY SPECIFIC FIELDS */}
+                                 {role === 'delivery' && (
+                                     <div className="bg-blue-50/50 p-4 rounded-3xl border border-blue-100 space-y-4 animate-in fade-in">
+                                        <div className="flex items-center gap-2 text-blue-800 font-bold text-sm uppercase tracking-wide"><Bike className="w-4 h-4"/> Vehicle Details</div>
+                                        <input required placeholder="Vehicle Name (e.g. Honda Activa)" className="input-better bg-white" value={formData.vehicleName} onChange={e => setFormData({...formData, vehicleName: e.target.value})} />
+                                        <input required placeholder="Vehicle Number (e.g. MH-12-AB-1234)" className="input-better bg-white" value={formData.vehicleNumber} onChange={e => setFormData({...formData, vehicleNumber: e.target.value})} />
+                                     </div>
+                                 )}
+                             </div>
+                         )}
+
+                         <div className="space-y-4">
+                             <input required type="email" placeholder="Email Address" className="input-better" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
+                             <input required type="password" placeholder="Password" className="input-better" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
+                         </div>
+
+                         {authMode === 'signup' && (role === 'farmer' || role === 'delivery') && (
+                             <div className="bg-stone-50 p-6 rounded-3xl border border-stone-200 space-y-4 mt-2">
+                                 <div className="flex items-center gap-2 text-stone-800 font-bold text-sm uppercase tracking-wide">
+                                     <ShieldCheck className="w-4 h-4" /> Identity Verification
+                                 </div>
+                                 <input required placeholder="Aadhar / Gov ID Number" className="input-better bg-white" value={formData.aadhar} onChange={e => setFormData({...formData, aadhar: e.target.value})} />
+                                 <div className="border-2 border-dashed border-stone-300 p-6 text-center rounded-2xl cursor-pointer relative hover:bg-stone-100 transition-colors group">
+                                     <Upload className="w-8 h-8 text-stone-400 mx-auto mb-2 group-hover:scale-110 transition-transform"/>
+                                     <span className="text-sm font-bold text-stone-600 block">{file ? file.name : "Upload ID Card Photo"}</span>
+                                     <input type="file" required className="absolute inset-0 opacity-0 cursor-pointer" onChange={e => setFile(e.target.files[0])} />
+                                 </div>
+                             </div>
+                         )}
+
+                         <button disabled={loading} className="w-full py-4 bg-[#2E7D32] text-white font-bold rounded-2xl hover:bg-[#1B5E20] transition-all shadow-xl shadow-green-900/10 flex justify-center items-center gap-2 mt-6 active:scale-95">
+                             {loading ? <Loader2 className="animate-spin w-5 h-5"/> : (authMode === 'login' ? 'Sign In' : 'Create Account')}
+                         </button>
+                       </form>
+
+                       <button onClick={() => setAuthMode(authMode === 'login' ? 'signup' : 'login')} className="block w-full text-center mt-8 text-stone-500 font-medium hover:text-green-700 transition-colors">
+                           {authMode === 'login' ? "New to Farm2Home? Create an Account" : "Already a member? Sign In"}
+                       </button>
+                   </div>
+                 </div>
+               </div>
+             );
+          };
 
              return (
                <div className="min-h-screen pt-20 flex bg-[#FDFCF8]">
@@ -1048,6 +1141,210 @@
                 </div>
               </div>
             );
+          };
+
+        // --- DELIVERY DASHBOARD ---
+          const DeliveryDashboard = () => {
+             const [availableOrders, setAvailableOrders] = useState([]);
+             const [myDeliveries, setMyDeliveries] = useState([]);
+             const [activeTab, setActiveTab] = useState('search'); // search | my_jobs
+             
+             // 1. SUSPENSION CHECK
+             if (currentUser.isSuspended) {
+                 return (
+                    <div className="min-h-screen flex flex-col items-center justify-center bg-red-50 p-6 text-center">
+                        <div className="bg-white p-10 rounded-[3rem] shadow-xl max-w-md">
+                            <AlertTriangle className="w-20 h-20 text-red-500 mx-auto mb-6"/>
+                            <h1 className="text-3xl font-black text-stone-900 mb-4">Account Suspended</h1>
+                            <p className="text-stone-500 mb-8">You have rejected 3 consecutive orders. Your account is now under review by the administrators.</p>
+                            <button onClick={handleLogout} className="px-8 py-3 bg-red-500 text-white font-bold rounded-xl hover:bg-red-600">Sign Out</button>
+                        </div>
+                    </div>
+                 );
+             }
+
+             // 2. APPROVAL CHECK
+             if (currentUser.status === 'pending') {
+                 return (
+                    <div className="min-h-screen flex flex-col items-center justify-center bg-stone-50 p-6 text-center">
+                        <div className="bg-white p-10 rounded-[3rem] shadow-xl max-w-md">
+                            <Clock className="w-20 h-20 text-amber-500 mx-auto mb-6 animate-pulse"/>
+                            <h1 className="text-3xl font-black text-stone-900 mb-4">Verification Pending</h1>
+                            <p className="text-stone-500 mb-8">Thank you for registering. The admin team is currently reviewing your Vehicle and ID details.</p>
+                            <button onClick={handleLogout} className="px-8 py-3 bg-stone-900 text-white font-bold rounded-xl">Sign Out</button>
+                        </div>
+                    </div>
+                 );
+             }
+
+             useEffect(() => {
+                 // Listen for Available Orders (Status: Ready for Pickup, No Driver Assigned)
+                 const qAvailable = query(
+                     getCollection("orders"), 
+                     where("status", "==", "Ready for Pickup"),
+                     where("deliveryGuyId", "==", null) // Not assigned yet
+                 );
+                 
+                 const unsubAvail = onSnapshot(qAvailable, (snap) => {
+                     setAvailableOrders(snap.docs.map(d => ({id: d.id, ...d.data()})));
+                 });
+
+                 // Listen for My Jobs
+                 const qMyJobs = query(
+                     getCollection("orders"),
+                     where("deliveryGuyId", "==", currentUser.uid)
+                 );
+                 
+                 const unsubJobs = onSnapshot(qMyJobs, (snap) => {
+                     const jobs = snap.docs.map(d => ({id: d.id, ...d.data()}));
+                     // Sort active jobs first
+                     jobs.sort((a,b) => (a.status === 'Delivered' ? 1 : -1));
+                     setMyDeliveries(jobs);
+                 });
+
+                 return () => { unsubAvail(); unsubJobs(); };
+             }, [currentUser.uid]);
+
+             const handleAcceptOrder = async (orderId) => {
+                 try {
+                     await updateDoc(getDocRef("orders", orderId), {
+                         deliveryGuyId: currentUser.uid,
+                         status: "Driver Assigned" // Driver Accepted
+                     });
+                     showNotification("Order Accepted! Head to pickup.", "success");
+                     setActiveTab('my_jobs');
+                 } catch (e) {
+                     showNotification("Error accepting order", "error");
+                 }
+             };
+
+             const handleRejectOrder = async () => {
+                 // 3-Strike Logic
+                 const newCount = (currentUser.rejectionCount || 0) + 1;
+                 try {
+                     const updates = { rejectionCount: newCount };
+                     if (newCount >= 3) {
+                         updates.isSuspended = true;
+                         updates.status = 'suspended';
+                     }
+                     await updateDoc(getDocRef("users", currentUser.uid), updates);
+                     
+                     // Update local state immediately to reflect UI
+                     setCurrentUser({...currentUser, ...updates});
+                     
+                     if(newCount >= 3) {
+                         showNotification("Account Suspended: Too many rejections.", "error");
+                     } else {
+                         showNotification(`Order Rejected. Warning: ${newCount}/3 strikes.`, "error");
+                     }
+                 } catch (e) {
+                     console.error(e);
+                 }
+             };
+
+             const updateOrderStatus = async (orderId, newStatus) => {
+                try {
+                    await updateDoc(getDocRef("orders", orderId), { status: newStatus });
+                    showNotification(`Order marked as ${newStatus}`, "success");
+                } catch(e) {
+                    showNotification("Update failed", "error");
+                }
+             };
+
+             return (
+                 <div className="min-h-screen pt-28 pb-12 px-4 bg-stone-50">
+                    <div className="max-w-4xl mx-auto">
+                        <div className="flex justify-between items-end mb-8">
+                             <div>
+                                 <h1 className="text-4xl font-black text-stone-900">Delivery Panel</h1>
+                                 <p className="text-stone-500">Vehicle: <span className="font-bold text-stone-800">{currentUser.vehicleNumber}</span></p>
+                             </div>
+                             <div className="flex bg-white p-1 rounded-xl shadow-sm border border-stone-200">
+                                 <button onClick={() => setActiveTab('search')} className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${activeTab === 'search' ? 'bg-stone-900 text-white' : 'text-stone-500'}`}>New Orders</button>
+                                 <button onClick={() => setActiveTab('my_jobs')} className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${activeTab === 'my_jobs' ? 'bg-stone-900 text-white' : 'text-stone-500'}`}>My Jobs</button>
+                             </div>
+                        </div>
+
+                        {activeTab === 'search' && (
+                            <div className="space-y-6">
+                                {availableOrders.length === 0 ? (
+                                    <div className="text-center py-20 bg-white rounded-[2.5rem] border border-dashed border-stone-200 animate-in fade-in">
+                                        <div className="w-16 h-16 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center mx-auto mb-4"><Search className="w-8 h-8 animate-pulse"/></div>
+                                        <p className="text-stone-400 font-bold">Searching for nearby orders...</p>
+                                    </div>
+                                ) : (
+                                    availableOrders.map(order => (
+                                        <div key={order.id} className="bg-white p-6 rounded-[2rem] shadow-xl shadow-stone-200/50 border border-stone-100 relative overflow-hidden animate-in slide-in-from-bottom-4">
+                                            <div className="absolute top-0 left-0 w-2 h-full bg-green-500"></div>
+                                            <div className="flex flex-col md:flex-row justify-between gap-6">
+                                                <div className="flex-1">
+                                                    <div className="flex items-center gap-2 mb-2">
+                                                        <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-black uppercase">Ready for Pickup</span>
+                                                        <span className="text-stone-400 text-xs font-mono">#{order.id.slice(0,6)}</span>
+                                                    </div>
+                                                    <h3 className="text-2xl font-bold text-stone-900 mb-1">Pickup from: {order.items?.[0]?.farmerName || 'Farmer'}</h3>
+                                                    <p className="text-stone-500 text-sm mb-4">Deliver to: {order.delivery?.address}, {order.delivery?.zip}</p>
+                                                    <div className="flex gap-4 text-sm font-bold text-stone-600">
+                                                        <span className="flex items-center gap-1"><Package className="w-4 h-4"/> {order.items?.length} Items</span>
+                                                        <span className="flex items-center gap-1"><DollarSign className="w-4 h-4"/> Earn ₹{Math.floor(order.total * 0.15)}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="flex flex-col gap-3 justify-center min-w-[150px]">
+                                                    <button onClick={() => handleAcceptOrder(order.id)} className="w-full py-3 bg-stone-900 text-white font-bold rounded-xl hover:bg-stone-800 shadow-lg shadow-stone-900/20 active:scale-95 transition-all">Accept</button>
+                                                    <button onClick={handleRejectOrder} className="w-full py-3 bg-white border-2 border-red-100 text-red-500 font-bold rounded-xl hover:bg-red-50 active:scale-95 transition-all">Reject</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        )}
+
+                        {activeTab === 'my_jobs' && (
+                            <div className="space-y-6">
+                                {myDeliveries.map(order => (
+                                    <div key={order.id} className={`better-box p-6 ${order.status === 'Delivered' ? 'opacity-60' : ''}`}>
+                                        <div className="flex justify-between items-start mb-6">
+                                            <div>
+                                                <h3 className="font-bold text-xl">Order #{order.id.slice(0,6)}</h3>
+                                                <p className="text-sm text-stone-500">Customer: {order.delivery?.name} ({order.delivery?.phone})</p>
+                                            </div>
+                                            <span className="px-3 py-1 bg-stone-100 rounded-lg text-xs font-bold uppercase">{order.status}</span>
+                                        </div>
+
+                                        <div className="bg-stone-50 p-4 rounded-xl mb-6 space-y-2">
+                                            <div className="flex items-start gap-3">
+                                                <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shrink-0 mt-0.5"><MapPin className="w-3 h-3"/></div>
+                                                <div>
+                                                    <p className="text-xs font-bold text-stone-400 uppercase">Delivery Address</p>
+                                                    <p className="text-stone-800 font-medium text-sm">{order.delivery?.address}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {order.status !== 'Delivered' && (
+                                            <div className="grid grid-cols-2 gap-4">
+                                                {order.status === 'Driver Assigned' && (
+                                                    <button onClick={() => updateOrderStatus(order.id, 'Out for Delivery')} className="col-span-2 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 flex items-center justify-center gap-2">
+                                                        <Package className="w-4 h-4"/> Confirm Pickup
+                                                    </button>
+                                                )}
+                                                {order.status === 'Out for Delivery' && (
+                                                    <button onClick={() => updateOrderStatus(order.id, 'Delivered')} className="col-span-2 py-3 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 flex items-center justify-center gap-2">
+                                                        <CheckCircle className="w-4 h-4"/> Confirm Delivered
+                                                    </button>
+                                                )}
+                                            </div>
+                                        )}
+                                        {order.status === 'Delivered' && <div className="text-center font-bold text-emerald-600 flex items-center justify-center gap-2"><CheckCircle className="w-5 h-5"/> Completed</div>}
+                                    </div>
+                                ))}
+                                {myDeliveries.length === 0 && <p className="text-center text-stone-400 py-10">No active jobs.</p>}
+                            </div>
+                        )}
+                    </div>
+                 </div>
+             );
           };
 
           const ModDashboard = () => {
@@ -1674,3 +1971,4 @@
     </script>
 </body>
 </html>
+
