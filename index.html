@@ -1920,7 +1920,7 @@
                     </div>
                 )}
                 {view === 'auth' && <AuthScreen />}
-                {view === 'farmer-panel' && currentUser?.role === 'farmer' && <FarmerDashboard />}
+               {view === 'delivery-panel' && currentUser?.role === 'delivery' && <DeliveryDashboard />}
                 {view === 'mod-panel' && currentUser?.role === 'mod' && <ModDashboard />}
                 {view === 'marketplace' && <BuyerMarketplace />}
                 {view === 'my-orders' && <BuyerOrders />}
@@ -1976,5 +1976,6 @@
     </script>
 </body>
 </html>
+
 
 
