@@ -1112,15 +1112,27 @@
                               )}
 
                               {order.status === 'Preparing' && (
-                                  <button onClick={() => handleFarmerOrderAction(order.id, 'Out for Delivery')} className="w-full py-4 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-700 shadow-lg shadow-purple-200 flex items-center justify-center gap-2 animate-in fade-in">
-                                      <Bike className="w-5 h-5"/> Mark Out for Delivery
+                                  <button onClick={() => handleFarmerOrderAction(order.id, 'Ready for Pickup')} className="w-full py-4 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-700 shadow-lg shadow-purple-200 flex items-center justify-center gap-2 animate-in fade-in">
+                                      <Bike className="w-5 h-5"/> Ready for Delivery Guy
                                   </button>
                               )}
 
+                              {order.status === 'Ready for Pickup' && (
+                                  <div className="flex items-center justify-center gap-2 text-purple-700 bg-purple-50 p-4 rounded-xl font-bold animate-in fade-in">
+                                      <Loader2 className="w-5 h-5 animate-spin"/> Waiting for Delivery Partner...
+                                  </div>
+                              )}
+
+                              {order.status === 'Driver Assigned' && (
+                                   <div className="flex items-center justify-center gap-2 text-blue-700 bg-blue-50 p-4 rounded-xl font-bold animate-in fade-in">
+                                      <User className="w-5 h-5"/> Driver Assigned! Pickup soon.
+                                  </div>
+                              )}
+
                               {order.status === 'Out for Delivery' && (
-                                  <button onClick={() => handleFarmerOrderAction(order.id, 'Delivered')} className="w-full py-4 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 shadow-lg shadow-emerald-200 flex items-center justify-center gap-2 animate-in fade-in">
-                                      <CheckCircle className="w-5 h-5"/> Confirm Delivered
-                                  </button>
+                                  <div className="flex items-center justify-center gap-2 text-purple-700 bg-purple-50 p-4 rounded-xl font-bold animate-in fade-in">
+                                      <Bike className="w-5 h-5"/> Out for Delivery (Partner)
+                                  </div>
                               )}
 
                               {order.status === 'Delivered' && (
@@ -1976,6 +1988,7 @@
     </script>
 </body>
 </html>
+
 
 
 
