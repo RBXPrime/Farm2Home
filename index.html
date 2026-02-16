@@ -174,7 +174,7 @@
           Home, Mail, Trash2, Box, Edit2, AlertTriangle, Copy, Phone, 
           ExternalLink, Settings, Wallet, FileCheck, Bike, Headphones, RefreshCw, 
           Sprout, LogOut, Clock, Calendar, Plus, Minus, Store, Ban, 
-          BarChart3, PieChart, TrendingUp, HelpCircle, Lock, ShoppingBag
+          BarChart3, PieChart, TrendingUp, HelpCircle, Lock, ShoppingBag, Eye
         } from 'lucide-react';
 
         // --- 1. FIREBASE CONFIGURATION ---
@@ -1144,6 +1144,7 @@
             const [selectedUserReject, setSelectedUserReject] = useState(null);
             const [selectedProductReject, setSelectedProductReject] = useState(null);
             const [selectedOrderReview, setSelectedOrderReview] = useState(null);
+            const [selectedUserReview, setSelectedUserReview] = useState(null); // Added state for reviewing users
             
             useEffect(() => {
                 const unsubUsers = onSnapshot(query(getCollection("users"), where("status", "==", "pending")), snap => setPendingUsers(snap.docs.map(d => ({id: d.id, ...d.data()}))));
@@ -1163,7 +1164,12 @@
                 } catch (e) { showNotification("Failed to save settings.", "error"); } finally { setSavingSettings(false); }
             };
 
-            const handleUserUpdate = async (id, data) => { try { await updateDoc(getDocRef("users", id), data); showNotification("User status updated.", "success"); } catch(e) { showNotification("Update failed.", "error"); } setSelectedUserReject(null); };
+            const handleUserUpdate = async (id, data) => { 
+                try { await updateDoc(getDocRef("users", id), data); showNotification("User status updated.", "success"); } 
+                catch(e) { showNotification("Update failed.", "error"); } 
+                setSelectedUserReject(null); 
+                setSelectedUserReview(null); // Close review modal
+            };
             const handleProductUpdate = async (id, data) => { try { await updateDoc(getDocRef("products", id), data); showNotification("Product status updated.", "success"); } catch(e) { showNotification("Update failed.", "error"); } setSelectedProductReject(null); };
             const handleProductDelete = async (id) => { try { await deleteDoc(getDocRef("products", id)); showNotification("Product deleted.", "success"); } catch(e) { showNotification("Delete failed.", "error"); } };
             const handleOrderVerification = async (id, status) => { try { await updateDoc(getDocRef("orders", id), { status }); showNotification(`Order ${status.split(' ')[1]}!`, "success"); setSelectedOrderReview(null); } catch(e) { showNotification("Verification action failed.", "error"); } };
@@ -1180,7 +1186,7 @@
                               {pendingUsers.map(user => (
                                   <div key={user.id} className="better-box p-6 flex flex-col md:flex-row justify-between items-center gap-6 bg-white">
                                       <div className="flex-1"><h4 className="font-bold text-lg">{user.name} <span className="bg-stone-100 text-stone-600 text-xs px-2 py-1 rounded-lg">{user.role}</span></h4><p className="text-sm text-stone-500">{user.email}</p></div>
-                                      <div className="flex gap-3 w-full md:w-auto"><Button onClick={() => handleUserUpdate(user.id, {status: 'active'})} variant="primary" size="sm">Approve</Button><Button onClick={() => setSelectedUserReject(user.id)} variant="danger" size="sm">Reject</Button></div>
+                                      <div className="flex gap-3 w-full md:w-auto"><Button onClick={() => setSelectedUserReview(user)} variant="primary" size="sm" icon={Eye}>Review Application</Button></div>
                                   </div>
                               ))}
                           </div>
@@ -1221,6 +1227,36 @@
                       )}
                       <Modal isOpen={!!selectedUserReject} onClose={() => setSelectedUserReject(null)} title="Reject"><textarea className="input-better h-32 mb-4" placeholder="Reason..." value={rejectReason} onChange={e => setRejectReason(e.target.value)}/><Button onClick={() => handleUserUpdate(selectedUserReject, {status:'rejected', rejectionReason:rejectReason})} variant="dangerSolid" fullWidth>Confirm</Button></Modal>
                       <Modal isOpen={!!selectedProductReject} onClose={() => setSelectedProductReject(null)} title="Reject"><textarea className="input-better h-32 mb-4" placeholder="Reason..." value={productRejectReason} onChange={e => setProductRejectReason(e.target.value)}/><Button onClick={() => handleProductUpdate(selectedProductReject, {status:'rejected', rejectionReason:productRejectReason})} variant="dangerSolid" fullWidth>Confirm</Button></Modal>
+                      
+                      {/* Detailed User Review Modal */}
+                      {selectedUserReview && (
+                          <Modal isOpen={true} onClose={() => setSelectedUserReview(null)} title="Review Application" maxWidth="max-w-2xl">
+                             <div className="space-y-6">
+                                 <div className="grid md:grid-cols-2 gap-6">
+                                     <div className="space-y-4">
+                                         <div className="bg-stone-50 p-4 rounded-xl"><p className="text-xs font-bold uppercase mb-1 text-stone-400">Applicant</p><p className="font-bold text-lg">{selectedUserReview.name}</p><p className="text-sm text-stone-500">{selectedUserReview.email}</p><p className="text-sm text-stone-500">{selectedUserReview.phone}</p></div>
+                                         <div className="bg-stone-50 p-4 rounded-xl"><p className="text-xs font-bold uppercase mb-1 text-stone-400">Role</p><span className="inline-block bg-stone-900 text-white text-xs font-bold px-2 py-1 rounded capitalize">{selectedUserReview.role}</span></div>
+                                         <div className="bg-stone-50 p-4 rounded-xl"><p className="text-xs font-bold uppercase mb-1 text-stone-400">Aadhar Number</p><p className="font-mono font-bold">{selectedUserReview.aadhar}</p></div>
+                                         {selectedUserReview.role === 'farmer' && <div className="bg-stone-50 p-4 rounded-xl"><p className="text-xs font-bold uppercase mb-1 text-stone-400">Farm Address</p><p className="font-medium">{selectedUserReview.address}</p></div>}
+                                         {selectedUserReview.role === 'delivery' && <div className="bg-stone-50 p-4 rounded-xl"><p className="text-xs font-bold uppercase mb-1 text-stone-400">Vehicle Details</p><p className="font-medium">{selectedUserReview.vehicleName}</p><p className="font-mono text-sm">{selectedUserReview.vehicleNumber}</p></div>}
+                                     </div>
+                                     <div className="space-y-2">
+                                         <p className="text-xs font-bold uppercase text-stone-400">ID Proof Document</p>
+                                         {selectedUserReview.docUrl ? (
+                                             <a href={selectedUserReview.docUrl} target="_blank" className="block border rounded-xl overflow-hidden hover:opacity-90 transition-opacity">
+                                                 <img src={selectedUserReview.docUrl} className="w-full h-64 object-cover" />
+                                             </a>
+                                         ) : <div className="h-64 bg-stone-100 rounded-xl flex items-center justify-center text-stone-400 font-bold border border-dashed">No Document Uploaded</div>}
+                                     </div>
+                                 </div>
+                                 <div className="grid grid-cols-2 gap-4 pt-4 border-t border-stone-100">
+                                     <Button onClick={() => handleUserUpdate(selectedUserReview.id, {status: 'active'})} variant="primary" size="lg">Approve</Button>
+                                     <Button onClick={() => { setSelectedUserReject(selectedUserReview.id); setSelectedUserReview(null); }} variant="danger" size="lg">Reject</Button>
+                                 </div>
+                             </div>
+                          </Modal>
+                      )}
+
                       {selectedOrderReview && (
                           <Modal isOpen={true} onClose={() => setSelectedOrderReview(null)} title="Order Verification" maxWidth="max-w-2xl">
                               <div className="flex flex-col md:flex-row gap-8">
@@ -1244,9 +1280,27 @@
         const MainContent = () => {
             const { view, currentUser, loading, authMode, setAuthMode, showNotification, setView } = useGlobalState();
             
+            // Updated Login Handler with Automatic Redirect
             const handleLogin = async (email, password) => {
-                try { await signInWithEmailAndPassword(auth, email, password); showNotification("Welcome back!", "success"); } 
-                catch(e) { showNotification("Invalid email or password.", "error"); }
+                try { 
+                    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+                    // Fetch user details immediately to determine redirect
+                    const userDoc = await getDoc(getDocRef("users", userCredential.user.uid));
+                    if (userDoc.exists()) {
+                        const userData = userDoc.data();
+                        showNotification(`Welcome back, ${userData.name}!`, "success");
+                        // Redirect based on role
+                        if (userData.role === 'farmer') setView('farmer-panel');
+                        else if (userData.role === 'delivery') setView('delivery-panel');
+                        else if (userData.role === 'mod') setView('mod-panel');
+                        else setView('marketplace');
+                    } else {
+                         // Fallback if doc doesn't exist yet
+                         setView('marketplace');
+                    }
+                } catch(e) { 
+                    showNotification("Invalid email or password.", "error"); 
+                }
             };
             
             const signupUser = async (data, file) => {
